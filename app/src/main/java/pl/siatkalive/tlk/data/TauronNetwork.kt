@@ -34,6 +34,23 @@ data class SetScore(
 )
 
 @Serializable
+data class MatchAnalytics(
+    val servingTeam: String? = null,
+    val currentRunTeam: String? = null,
+    val currentRunCount: Int = 0,
+    val maxRunHome: Int = 0,
+    val maxRunAway: Int = 0,
+    val homeSideOuts: Int = 0,
+    val awaySideOuts: Int = 0,
+    val homeBreakPoints: Int = 0,
+    val awayBreakPoints: Int = 0,
+    val totalHomePoints: Int = 0,
+    val totalAwayPoints: Int = 0,
+    val alertType: String? = null,
+    val alertTeam: String? = null
+)
+
+@Serializable
 data class MatchDto(
     val id: String,
     val syncKey: String = "",
@@ -46,7 +63,8 @@ data class MatchDto(
     val currentSet: Int? = null,
     val homeSets: Int = 0,
     val awaySets: Int = 0,
-    val sets: List<SetScore> = emptyList()
+    val sets: List<SetScore> = emptyList(),
+    val analytics: MatchAnalytics = MatchAnalytics()
 )
 
 @Serializable
