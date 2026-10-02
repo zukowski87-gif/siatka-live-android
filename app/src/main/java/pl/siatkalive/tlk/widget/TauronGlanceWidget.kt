@@ -45,10 +45,9 @@ class TauronGlanceWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val prefs = context.getSharedPreferences("siatka_prefs", Context.MODE_PRIVATE)
         val favTeam = prefs.getString("fav_team", "Chemik") ?: "Chemik"
-        val customUrl = prefs.getString("bff_url", null)
 
         val widgetData = try {
-            ApiClient.getApi(customUrl).getWidgetData(favTeam)
+            ApiClient.api.getWidgetData(favTeam)
         } catch (e: Exception) {
             null
         }
@@ -73,7 +72,7 @@ class TauronGlanceWidget : GlanceAppWidget() {
         ) {
             if (match == null) {
                 Text(
-                    text = "Siatka Live – Dotknij, aby połączyć z serwerem",
+                    text = "Siatka Kobiet Live – Dotknij, aby odświeżyć",
                     style = TextStyle(color = ColorProvider(Color.White), fontSize = 13.sp)
                 )
                 return@Column

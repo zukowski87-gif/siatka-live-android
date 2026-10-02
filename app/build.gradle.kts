@@ -13,12 +13,10 @@ android {
         applicationId = "pl.siatkalive.tlk"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
-        // Domyślny adres API (można nadpisać przy kompilacji zmienną BFF_BASE_URL)
-        val bffUrl = System.getenv("BFF_BASE_URL") ?: "http://192.168.1.143:3000/"
-        buildConfigField("String", "BFF_BASE_URL", "\"\$bffUrl\"")
+        buildConfigField("String", "BFF_BASE_URL", "\"http://192.168.1.143:3000/\"")
     }
 
     signingConfigs {
@@ -75,16 +73,13 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
-    // Jetpack Glance (Widżet ekranu głównego)
     implementation("androidx.glance:glance-appwidget:1.1.1")
     implementation("androidx.glance:glance-material3:1.1.1")
 
-    // Sieć: Retrofit2 + Kotlinx Serialization
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
-    // WorkManager (Okresowa synchronizacja widżetu w tle)
     implementation("androidx.work:work-runtime-ktx:2.10.0")
 }

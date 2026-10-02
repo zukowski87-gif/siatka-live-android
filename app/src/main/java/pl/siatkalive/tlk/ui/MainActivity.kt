@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -22,7 +23,6 @@ import androidx.compose.ui.unit.sp
 import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import pl.siatkalive.tlk.BuildConfig
 import pl.siatkalive.tlk.data.*
 import pl.siatkalive.tlk.widget.TauronGlanceWidget
 
@@ -45,31 +45,31 @@ fun TauronAppScreen() {
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var favTeam by remember { mutableStateOf(prefs.getString("fav_team", "Chemik") ?: "Chemik") }
-    var serverUrl by remember { mutableStateOf(prefs.getString("bff_url", BuildConfig.BFF_BASE_URL) ?: BuildConfig.BFF_BASE_URL) }
 
     var widgetState by remember { mutableStateOf<WidgetResponse?>(null) }
     var standings by remember { mutableStateOf<List<StandingRowDto>>(emptyList()) }
     var matches by remember { mutableStateOf<List<MatchDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-    var errorMsg by remember { mutableStateOf<String?>(null) }
+    var isOffline by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     suspend fun syncAll() {
         try {
-            errorMsg = null
-            val api = ApiClient.getApi(serverUrl)
-            widgetState = api.getWidgetData(favTeam)
-            matches = api.getMatches().matches
-            standings = api.getStandings().standings
+            isOffline = false
+            widgetState = ApiClient.api.getWidgetData(favTeam)
+            matches = ApiClient.api.getMatches().matches
+            standings = ApiClient.api.getStandings().standings
             TauronGlanceWidget().updateAll(context)
         } catch (e: Exception) {
-            errorMsg = "Brak połączenia z serwerem ($serverUrl): ${e.localizedMessage}"
+            isOffline = true
         } finally {
             isLoading = false
         }
     }
 
-    LaunchedEffect(favTeam, serverUrl) {
+    LaunchedEffect(favTeam) {
+        // Wyczyść ewentualną starą wartość z poprzedniej wersji
+        prefs.edit().remove("bff_url").apply()
         while (true) {
             syncAll()
             val delayMs = if (widgetState?.liveMatchesCount ?: 0 > 0) 10_000L else 30_000L
@@ -105,8 +105,8 @@ fun TauronAppScreen() {
                 NavigationBarItem(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
-                    label = { Text("Ustawienia") },
-                    icon = { Text("⚙️") }
+                    label = { Text("Mój Klub") },
+                    icon = { Text("💙") }
                 )
             }
         }
@@ -117,12 +117,17 @@ fun TauronAppScreen() {
                 .padding(padding)
                 .padding(horizontal = 12.dp)
         ) {
-            if (errorMsg != null) {
+            if (isOffline) {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF450A0A)),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
                     modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
                 ) {
-                    Text(errorMsg!!, color = Color(0xFFFCA5A5), modifier = Modifier.padding(10.dp), fontSize = 12.sp)
+                    Text(
+                        "Brak połączenia z serwerem wyników. Sprawdź połączenie Wi-Fi / Internet i dotknij Odśwież.",
+                        color = Color(0xFF94A3B8),
+                        modifier = Modifier.padding(12.dp),
+                        fontSize = 12.sp
+                    )
                 }
             }
 
@@ -134,13 +139,12 @@ fun TauronAppScreen() {
                 when (selectedTab) {
                     0 -> MatchesTab(widgetState?.featuredMatch, matches, favTeam)
                     1 -> StandingsTab(standings, favTeam)
-                    2 -> SettingsTab(
-                        favTeam = favTeam,
-                        serverUrl = serverUrl,
-                        onSave = { newTeam, newUrl ->
-                            prefs.edit().putString("fav_team", newTeam).putString("bff_url", newUrl).apply()
+                    2 -> FavoriteTeamTab(
+                        currentFav = favTeam,
+                        standings = standings,
+                        onSelectTeam = { newTeam ->
+                            prefs.edit().putString("fav_team", newTeam).apply()
                             favTeam = newTeam
-                            serverUrl = newUrl
                             selectedTab = 0
                         }
                     )
@@ -201,7 +205,8 @@ fun MatchesTab(featured: MatchDto?, matches: List<MatchDto>, favTeam: String) {
         }
 
         items(matches, key = { it.id }) { m ->
-            val isFav = m.homeTeam.name.contains(favTeam, true) || m.awayTeam.name.contains(favTeam, true)
+            val isFav = m.homeTeam.name.contains(favTeam, true) || m.awayTeam.name.contains(favTeam, true) ||
+                        m.homeTeam.shortName.equals(favTeam, true) || m.awayTeam.shortName.equals(favTeam, true)
             val cardBg = if (isFav) Color(0xFF172554) else Color(0xFF0F172A)
             Card(
                 colors = CardDefaults.cardColors(containerColor = cardBg),
@@ -252,7 +257,7 @@ fun StandingsTab(rows: List<StandingRowDto>, favTeam: String) {
             }
         }
         items(rows, key = { it.position }) { r ->
-            val isFav = r.name.contains(favTeam, true)
+            val isFav = r.name.contains(favTeam, true) || r.shortName.equals(favTeam, true)
             val rowBg = if (isFav) Color(0xFF1E3A8A) else Color(0xFF0F172A)
             Row(
                 modifier = Modifier
@@ -273,32 +278,51 @@ fun StandingsTab(rows: List<StandingRowDto>, favTeam: String) {
 }
 
 @Composable
-fun SettingsTab(favTeam: String, serverUrl: String, onSave: (String, String) -> Unit) {
-    var teamInput by remember { mutableStateOf(favTeam) }
-    var urlInput by remember { mutableStateOf(serverUrl) }
+fun FavoriteTeamTab(currentFav: String, standings: List<StandingRowDto>, onSelectTeam: (String) -> Unit) {
+    val defaultTeams = listOf(
+        "LOTTO Chemik Police", "KS DevelopRes Rzeszów", "ŁKS Commercecon Łódź",
+        "PGE Budowlani Łódź", "BKS ZGO Bielsko-Biała", "MOYA Radomka Radom",
+        "UNI Opole", "#VolleyWrocław", "Metalkas Pałac Bydgoszcz",
+        "ITA TOOLS STAL Mielec", "NETLAND MKS Kalisz", "Sokół & Hagric Mogilno"
+    )
+    val teamsList = if (standings.isNotEmpty()) standings.map { it.name } else defaultTeams
 
-    Column(Modifier.fillMaxWidth().padding(vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text("Konfiguracja Aplikacji i Widżetu", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-
-        OutlinedTextField(
-            value = teamInput,
-            onValueChange = { teamInput = it },
-            label = { Text("Ulubiona drużyna na widżecie (np. Chemik)") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        OutlinedTextField(
-            value = urlInput,
-            onValueChange = { urlInput = it },
-            label = { Text("Adres serwera BFF (np. http://192.168.1.x:3000/)") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Button(
-            onClick = { onSave(teamInput.trim(), urlInput.trim()) },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Zapisz i zaktualizuj widżet")
+    LazyColumn(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(vertical = 14.dp)
+    ) {
+        item {
+            Text("Wybierz swój klub na Widżet", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Wybrana drużyna będzie wyróżniona w tabeli oraz śledzona priorytetowo na widżecie ekranu głównego.",
+                color = Color(0xFF94A3B8),
+                fontSize = 13.sp
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+        items(teamsList) { teamName ->
+            val isSelected = teamName.contains(currentFav, true)
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isSelected) Color(0xFF1E3A8A) else Color(0xFF0F172A)
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onSelectTeam(teamName) }
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(teamName, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium, fontSize = 15.sp)
+                    if (isSelected) {
+                        Text("✓ Wybrano", color = Color(0xFFFACC15), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                }
+            }
         }
     }
 }

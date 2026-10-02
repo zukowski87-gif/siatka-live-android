@@ -112,25 +112,12 @@ object ApiClient {
         .readTimeout(8, TimeUnit.SECONDS)
         .build()
 
-    @Volatile
-    private var currentBaseUrl: String = BuildConfig.BFF_BASE_URL
-
-    @Volatile
-    private var retrofitApi: TauronBffApi? = null
-
-    fun getApi(customUrl: String? = null): TauronBffApi {
-        val targetUrl = (customUrl?.takeIf { it.isNotBlank() } ?: currentBaseUrl)
-            .let { if (it.endsWith("/")) it else "$it/" }
-
-        if (retrofitApi == null || targetUrl != currentBaseUrl) {
-            currentBaseUrl = targetUrl
-            retrofitApi = Retrofit.Builder()
-                .baseUrl(currentBaseUrl)
-                .client(okHttp)
-                .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
-                .build()
-                .create(TauronBffApi::class.java)
-        }
-        return retrofitApi!!
+    val api: TauronBffApi by lazy {
+        Retrofit.Builder()
+            .baseUrl(BuildConfig.BFF_BASE_URL)
+            .client(okHttp)
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build()
+            .create(TauronBffApi::class.java)
     }
 }
