@@ -1,0 +1,57 @@
+name: Android Build (APK & Google Play AAB)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Pobranie kodu źródłowego
+        uses: actions/checkout@v4
+
+      - name: 2. Konfiguracja JDK 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 3. Konfiguracja Gradle 8.10.2 (bez konieczności trzymania binariów w repo)
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: 4. Wygenerowanie klucza podpisu (Upload Keystore) i kompilacja APK + AAB
+        run: |
+          keytool -genkeypair -v \
+            -keystore upload-keystore.jks \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -alias upload \
+            -storepass android123 -keypass android123 \
+            -dname "CN=SiatkaLive, OU=Mobile, O=SiatkaLive, L=Police, S=Zachodniopomorskie, C=PL"
+
+          export KEYSTORE_FILE="$PWD/upload-keystore.jks"
+          export KEYSTORE_PASSWORD="android123"
+          export KEY_ALIAS="upload"
+          export KEY_PASSWORD="android123"
+
+          gradle assembleDebug assembleRelease bundleRelease --no-daemon
+
+      - name: 5. Publikacja gotowego pliku instalacyjnego APK (na telefon)
+        uses: actions/upload-artifact@v4
+        with:
+          name: SiatkaLive-Installable-APK
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/release/*.apk
+
+      - name: 6. Publikacja paczki produkcyjnej AAB + Klucza (do Google Play Console)
+        uses: actions/upload-artifact@v4
+        with:
+          name: SiatkaLive-GooglePlay-AAB-Bundle
+          path: |
+            app/build/outputs/bundle/release/*.aab
+            upload-keystore.jks
