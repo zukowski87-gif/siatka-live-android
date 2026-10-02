@@ -87,7 +87,6 @@ fun TauronAppScreen() {
 
     val isLiveMode = (widgetState?.liveMatchesCount ?: 0) > 0 || (widgetState?.featuredMatch?.isLive == true)
 
-    // Znajdź aktualnie otwarty mecz (odświeżany na żywo co 10s!)
     val openedMatch = remember(openedMatchId, widgetState, matches) {
         if (openedMatchId == null) null
         else if (widgetState?.featuredMatch?.id == openedMatchId) widgetState?.featuredMatch
@@ -209,7 +208,6 @@ fun TauronAppScreen() {
     }
 }
 
-// Wykrywanie aktualnego stanu Piłki Setowej / Meczowej również bezpośrednio na kliencie
 fun detectCriticalPointAlert(match: MatchDto): Pair<String, String>? {
     val activeSet = match.sets.find { it.isLive } ?: match.sets.lastOrNull() ?: return null
     if (!match.isLive && activeSet.isComplete) return null
@@ -245,7 +243,6 @@ fun MatchCenterDetailScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding = PaddingValues(vertical = 12.dp)
     ) {
-        // 1. AUTOMATYCZNY DETEKTOR PIŁEK SETOWYCH I MECZOWYCH (SET POINT / MATCH POINT ⚡)
         if (alertInfo != null) {
             item {
                 Card(
@@ -266,7 +263,6 @@ fun MatchCenterDetailScreen(
             }
         }
 
-        // 2. GŁÓWNA TABLICA WYNIKÓW + WSKAŹNIK ZAGRYWKI
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
@@ -337,7 +333,6 @@ fun MatchCenterDetailScreen(
             }
         }
 
-        // 3. SZCZEGÓŁOWY PRZEBIEG SETÓW I MAŁYCH PUNKTÓW
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
@@ -346,7 +341,7 @@ fun MatchCenterDetailScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("1. PRZEBIEG SETÓW I PUNKTACJA", color = Color(0xFF38BDF8), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                    Text("1. PRZEBIEG SETÓW I PUNKTACJA W SECIE", color = Color(0xFF38BDF8), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
 
                     if (match.sets.isEmpty()) {
                         Text(
@@ -373,7 +368,7 @@ fun MatchCenterDetailScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = if (s.isLive) "🔴 SET ${s.setNumber} (TRWA)" else "SET ${s.setNumber} (ZAKOŃCZONY)",
+                                        text = if (s.isLive) "🔴 SET ${s.setNumber} (W TRAKCIE)" else "SET ${s.setNumber} (ZAKOŃCZONY)",
                                         color = if (s.isLive) Color(0xFFEF4444) else Color(0xFF94A3B8),
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 12.sp
@@ -386,7 +381,6 @@ fun MatchCenterDetailScreen(
                                     )
                                 }
                                 Spacer(Modifier.height(6.dp))
-                                // Pasek proporcji punktów w secie
                                 Row(
                                     Modifier
                                         .fillMaxWidth()
@@ -411,7 +405,6 @@ fun MatchCenterDetailScreen(
             }
         }
 
-        // 4. ANALITYKA LIVE: SIDE-OUT VS BREAK POINT & SERIE PUNKTOWE
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
@@ -420,15 +413,15 @@ fun MatchCenterDetailScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("2. ANALITYKA: SIDE-OUT vs BREAK POINT", color = Color(0xFF38BDF8), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                    Text("2. ANALITYKA LIVE: SIDE-OUT vs BREAK POINT", color = Color(0xFF38BDF8), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
                     Text(
-                        "Side-out = punkt zdobyty po przyjęciu zagrywki rywalek (przejście). Break Point = punkt zdobyty przy własnej zagrywce (przełamanie).",
+                        "Side-out = punkt zdobyty po przyjęciu zagrywki rywalek. Break Point = punkt zdobyty przy własnej zagrywce (przełamanie).",
                         color = Color(0xFF64748B),
                         fontSize = 11.sp
                     )
 
                     StatComparisonRow(
-                        label = "Przełamania (Break Points)",
+                        label = "Przełamania przy własnej zagrywce (Break Points)",
                         homeVal = a.homeBreakPoints,
                         awayVal = a.awayBreakPoints,
                         homeShort = match.homeTeam.shortName,
@@ -503,15 +496,15 @@ fun StatComparisonRow(label: String, homeVal: Int, awayVal: Int, homeShort: Stri
 fun extractMonthHeader(dateLabel: String): String {
     val lower = dateLabel.lowercase()
     return when {
-        lower.contains("wrz") -> "WRZESIEŃ 2026"
-        lower.contains("paź") || lower.contains("paz") -> "PAŹDZIERNIK 2026"
-        lower.contains("lis") -> "LISTOPAD 2026"
-        lower.contains("gru") -> "GRUDZIEŃ 2026"
-        lower.contains("sty") -> "STYCZEŃ 2027"
-        lower.contains("lut") -> "LUTY 2027"
-        lower.contains("mar") -> "MARZEC 2027"
-        lower.contains("kwi") -> "KWIECIEŃ 2027"
-        lower.contains("maj") -> "MAJ 2027"
+        lower.contains(".09.") || lower.contains("wrz") -> "WRZESIEŃ 2026"
+        lower.contains(".10.") || lower.contains("paź") || lower.contains("paz") -> "PAŹDZIERNIK 2026"
+        lower.contains(".11.") || lower.contains("lis") -> "LISTOPAD 2026"
+        lower.contains(".12.") || lower.contains("gru") -> "GRUDZIEŃ 2026"
+        lower.contains(".01.") || lower.contains("sty") -> "STYCZEŃ 2027"
+        lower.contains(".02.") || lower.contains("lut") -> "LUTY 2027"
+        lower.contains(".03.") || lower.contains("mar") -> "MARZEC 2027"
+        lower.contains(".04.") || lower.contains("kwi") -> "KWIECIEŃ 2027"
+        lower.contains(".05.") || lower.contains("maj") -> "MAJ 2027"
         else -> "POZOSTAŁE TERMINY SEZONU"
     }
 }
@@ -556,7 +549,6 @@ fun MatchesTab(
                         )
                     }
 
-                    // Baner Set Point / Match Point bezpośrednio na karcie Centrum Meczowego
                     if (criticalAlert != null) {
                         Surface(
                             color = Color(0xFF7F1D1D),
@@ -612,7 +604,7 @@ fun MatchesTab(
                                     )
                                 }
                                 Text(
-                                    text = "Szczegóły & Analityka ➔",
+                                    text = "Otwórz analitykę ➔",
                                     color = Color(0xFF38BDF8),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
@@ -685,7 +677,7 @@ fun MatchesTab(
                     HorizontalDivider(color = Color(0xFF334155), thickness = 2.dp)
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = "TERMINARZ ROZGRYWEK (PODZIAŁ NA MIESIĄCE)",
+                        text = "CAŁY SEZON 2026/2027 (PODZIAŁ NA MIESIĄCE)",
                         color = Color(0xFF94A3B8),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.ExtraBold,
