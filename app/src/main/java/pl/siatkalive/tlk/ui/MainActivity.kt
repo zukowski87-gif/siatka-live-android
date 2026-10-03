@@ -55,7 +55,7 @@ fun TauronAppScreen() {
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var openedMatchId by remember { mutableStateOf<String?>(null) }
-    var selectedTeamRow by remember { mutableStateOf<StandingRowDto?>(null) }
+    var showSettings by remember { mutableStateOf(false) }
     var favTeam by remember { mutableStateOf(prefs.getString("fav_team", "Chemik") ?: "Chemik") }
 
     var widgetState by remember { mutableStateOf<WidgetResponse?>(null) }
@@ -122,55 +122,60 @@ fun TauronAppScreen() {
                     }
                 },
                 actions = {
-                    if (openedMatch != null) {
-                        TextButton(onClick = { openedMatchId = null }) {
+                    if (openedMatch != null || showSettings) {
+                        TextButton(onClick = { openedMatchId = null; showSettings = false }) {
                             Text("✕ Zamknij", color = Color(0xFFFACC15), fontWeight = FontWeight.Bold)
                         }
                     } else {
-                        TextButton(onClick = {
-                            scope.launch {
-                                syncAll()
-                                runCatching { statsOverview = ApiClient.api.getStatsOverview() }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = {
+                                scope.launch {
+                                    syncAll()
+                                    runCatching { statsOverview = ApiClient.api.getStatsOverview() }
+                                }
+                            }) {
+                                Text("↻ Odśwież", color = Color(0xFF38BDF8), fontWeight = FontWeight.Bold)
                             }
-                        }) {
-                            Text("↻ Odśwież", color = Color(0xFF38BDF8), fontWeight = FontWeight.Bold)
+                            IconButton(onClick = { showSettings = true }) {
+                                Text("⚙️", fontSize = 19.sp)
+                            }
                         }
                     }
                 }
             )
         },
         bottomBar = {
-            if (openedMatch == null) {
+            if (openedMatch == null && !showSettings) {
                 NavigationBar {
                     NavigationBarItem(
                         selected = selectedTab == 0,
-                        onClick = { openedMatchId = null; selectedTeamRow = null; selectedTab = 0 },
+                        onClick = { openedMatchId = null; showSettings = false; selectedTab = 0 },
                         label = { Text("Mecze", fontSize = 10.sp) },
                         icon = { Text("⚡") }
                     )
                     NavigationBarItem(
                         selected = selectedTab == 1,
-                        onClick = { openedMatchId = null; selectedTeamRow = null; selectedTab = 1 },
+                        onClick = { openedMatchId = null; showSettings = false; selectedTab = 1 },
                         label = { Text("Terminarz", fontSize = 10.sp) },
                         icon = { Text("📅") }
                     )
                     NavigationBarItem(
                         selected = selectedTab == 2,
-                        onClick = { openedMatchId = null; selectedTeamRow = null; selectedTab = 2 },
+                        onClick = { openedMatchId = null; showSettings = false; selectedTab = 2 },
                         label = { Text("Tabela", fontSize = 10.sp) },
                         icon = { Text("📊") }
                     )
                     NavigationBarItem(
                         selected = selectedTab == 3,
-                        onClick = { openedMatchId = null; selectedTeamRow = null; selectedTab = 3 },
+                        onClick = { openedMatchId = null; showSettings = false; selectedTab = 3 },
                         label = { Text("Statystyki", fontSize = 10.sp) },
                         icon = { Text("🏆") }
                     )
                     NavigationBarItem(
                         selected = selectedTab == 4,
-                        onClick = { openedMatchId = null; selectedTeamRow = null; selectedTab = 4 },
-                        label = { Text("Mój Klub", fontSize = 10.sp) },
-                        icon = { Text("💙") }
+                        onClick = { openedMatchId = null; showSettings = false; selectedTab = 4 },
+                        label = { Text("Kluby", fontSize = 10.sp) },
+                        icon = { Text("🏟️") }
                     )
                 }
             }
@@ -188,6 +193,17 @@ fun TauronAppScreen() {
                     match = openedMatch,
                     standings = standings,
                     onBack = { openedMatchId = null }
+                )
+            } else if (showSettings) {
+                BackHandler { showSettings = false }
+                SettingsScreen(
+                    currentFav = favTeam,
+                    standings = standings,
+                    onSelectTeam = { newTeam ->
+                        prefs.edit().putString("fav_team", newTeam).apply()
+                        favTeam = newTeam
+                    },
+                    onBack = { showSettings = false }
                 )
             } else {
                 if (isOffline) {
@@ -221,16 +237,11 @@ fun TauronAppScreen() {
                             favTeam = favTeam,
                             onOpenMatch = { matchId -> openedMatchId = matchId }
                         )
-                        2 -> StandingsTab(standings, favTeam, onTeamClick = { row -> selectedTeamRow = row })
+                        2 -> StandingsTab(standings, favTeam)
                         3 -> LeagueStatsTab(statsOverview, favTeam)
-                        4 -> FavoriteTeamTab(
-                            currentFav = favTeam,
+                        4 -> ClubsTab(
                             standings = standings,
-                            onSelectTeam = { newTeam ->
-                                prefs.edit().putString("fav_team", newTeam).apply()
-                                favTeam = newTeam
-                                selectedTab = 0
-                            }
+                            favTeam = favTeam
                         )
                     }
                 }
@@ -1207,21 +1218,13 @@ fun MatchListItemCard(
 @Composable
 fun StandingsTab(
     rows: List<StandingRowDto>,
-    favTeam: String,
-    onTeamClick: (StandingRowDto) -> Unit
+    favTeam: String
 ) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(6.dp),
         contentPadding = PaddingValues(vertical = 12.dp)
     ) {
         item {
-            Text(
-                text = "💡 Dotknij dowolny zespół w tabeli, aby zobaczyć skład, trenerów, halę i stronę WWW.",
-                color = Color(0xFF38BDF8),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
-            )
             Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp)) {
                 Text("#", Modifier.width(28.dp), fontWeight = FontWeight.Bold, color = Color.Gray)
                 Text("Drużyna", Modifier.weight(1f), fontWeight = FontWeight.Bold, color = Color.Gray)
@@ -1238,15 +1241,11 @@ fun StandingsTab(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
                     .background(rowBg)
-                    .clickable { onTeamClick(r) }
-                    .padding(horizontal = 10.dp, vertical = 12.dp),
+                    .padding(horizontal = 10.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("${r.position}.", Modifier.width(28.dp), fontWeight = FontWeight.Bold)
-                Column(Modifier.weight(1f)) {
-                    Text(r.name, fontWeight = if (isFav) FontWeight.Bold else FontWeight.Medium, color = Color.White)
-                    Text("Profil klubu ➔", fontSize = 10.sp, color = Color(0xFF38BDF8))
-                }
+                Text(r.name, Modifier.weight(1f), fontWeight = if (isFav) FontWeight.Bold else FontWeight.Normal, color = Color.White)
                 Text("${r.matchesPlayed}", Modifier.width(32.dp))
                 Text("${r.points}", Modifier.width(42.dp), fontWeight = FontWeight.ExtraBold, color = Color(0xFFFACC15))
                 Text("${r.setsWon}:${r.setsLost}", Modifier.width(48.dp), color = Color(0xFFCBD5E1), textAlign = TextAlign.End)
@@ -1255,22 +1254,68 @@ fun StandingsTab(
     }
 }
 
+fun resolveTlkTeamId(teamName: String, explicitId: Int? = null): Int {
+    if (explicitId != null && explicitId > 0) return explicitId
+    val lower = teamName.lowercase()
+    return when {
+        lower.contains("chemik") || lower.contains("police") -> 20
+        lower.contains("budowlani") -> 19
+        lower.contains("radomka") || lower.contains("radom") -> 58
+        lower.contains("bielsko") || lower.contains("bks") -> 9
+        lower.contains("developres") || lower.contains("rzesz") -> 32
+        lower.contains("łks") || lower.contains("lks") || lower.contains("commercecon") -> 36
+        lower.contains("opole") -> 7
+        lower.contains("mielec") || lower.contains("stal") -> 84
+        lower.contains("bydgoszcz") || lower.contains("pałac") || lower.contains("palac") -> 48
+        lower.contains("wrocław") || lower.contains("wroclaw") || lower.contains("volley") -> 1
+        lower.contains("mogilno") || lower.contains("sokół") || lower.contains("sokol") -> 47
+        lower.contains("kalisz") || lower.contains("mks") -> 54
+        else -> 20
+    }
+}
+
 @Composable
-fun TeamDetailsScreen(
-    standing: StandingRowDto,
-    onBack: () -> Unit
+fun ClubsTab(
+    standings: List<StandingRowDto>,
+    favTeam: String
 ) {
     val context = LocalContext.current
+    val clubsList = remember(standings) {
+        if (standings.isNotEmpty()) standings.map { it.name }
+        else listOf(
+            "LOTTO Chemik Police",
+            "PGE Budowlani Łódź",
+            "KS DevelopRes Rzeszów",
+            "ŁKS Commercecon Łódź",
+            "BKS ZGO Bielsko-Biała",
+            "MOYA Radomka Radom",
+            "UNI Opole",
+            "Metalkas Pałac Bydgoszcz",
+            "#VolleyWrocław",
+            "ITA TOOLS STAL Mielec",
+            "Sokół & Hagric Mogilno",
+            "NETLAND MKS Kalisz"
+        )
+    }
+
+    val initialClub = remember(clubsList, favTeam) {
+        clubsList.find { it.contains(favTeam, ignoreCase = true) } ?: clubsList.first()
+    }
+    var selectedClubName by remember(initialClub) { mutableStateOf(initialClub) }
+    var dropdownExpanded by remember { mutableStateOf(false) }
+
     var profile by remember { mutableStateOf<TeamProfileResponse?>(null) }
     var loading by remember { mutableStateOf(true) }
 
-    LaunchedEffect(standing.teamId) {
+    val selectedStanding = remember(standings, selectedClubName) {
+        standings.find { it.name.equals(selectedClubName, ignoreCase = true) }
+    }
+
+    LaunchedEffect(selectedClubName) {
         loading = true
-        val tid = standing.teamId ?: 0
-        if (tid > 0) {
-            runCatching {
-                profile = ApiClient.api.getTeamDetails(tid)
-            }
+        val tid = resolveTlkTeamId(selectedClubName, selectedStanding?.teamId)
+        runCatching {
+            profile = ApiClient.api.getTeamDetails(tid)
         }
         loading = false
     }
@@ -1279,63 +1324,103 @@ fun TeamDetailsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding = PaddingValues(vertical = 12.dp)
     ) {
-        // Przycisk powrotu do tabeli
+        // LISTA ROZWIJANA WYBORU KLUBU
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedButton(
-                    onClick = onBack,
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, Color(0xFF38BDF8))
+            Text(
+                text = "🏟️ CENTRUM KLUBÓW TAURON LIGI",
+                color = Color.White,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 18.sp
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "Wybierz klub z listy rozwijanej, aby zobaczyć sztab trenerski, pełny skład, halę i stronę WWW:",
+                color = Color(0xFF94A3B8),
+                fontSize = 12.sp
+            )
+            Spacer(Modifier.height(8.dp))
+
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Surface(
+                    color = Color(0xFF1E293B),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(2.dp, Color(0xFF0284C7)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { dropdownExpanded = true }
                 ) {
-                    Text("⬅ Powrót do tabeli", color = Color(0xFF38BDF8), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Wybrany klub:", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(selectedClubName, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Black)
+                        }
+                        Text("▼ Zmień", color = Color(0xFFFACC15), fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                    }
+                }
+
+                DropdownMenu(
+                    expanded = dropdownExpanded,
+                    onDismissRequest = { dropdownExpanded = false },
+                    modifier = Modifier
+                        .fillMaxWidth(0.92f)
+                        .background(Color(0xFF0F172A))
+                ) {
+                    clubsList.forEach { clubName ->
+                        val isCurrent = clubName == selectedClubName
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = clubName,
+                                    color = if (isCurrent) Color(0xFFFACC15) else Color.White,
+                                    fontWeight = if (isCurrent) FontWeight.ExtraBold else FontWeight.Medium,
+                                    fontSize = 14.sp
+                                )
+                            },
+                            onClick = {
+                                selectedClubName = clubName
+                                dropdownExpanded = false
+                            }
+                        )
+                    }
                 }
             }
         }
 
-        // Nagłówek Klubu z miejscem w tabeli i bilansem
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
-                border = BorderStroke(1.dp, Color(0xFF0284C7)),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "🏟️ PROFIL KLUBU TAURON LIGI",
-                        color = Color(0xFF38BDF8),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    Text(
-                        text = standing.name,
-                        color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                    HorizontalDivider(color = Color(0xFF334155))
+        // KARTA BILANSU W TABELI (JEŚLI DOSTĘPNA)
+        if (selectedStanding != null) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column {
                             Text("Miejsce w tabeli", color = Color(0xFF94A3B8), fontSize = 11.sp)
-                            Text("#${standing.position}", color = Color(0xFFFACC15), fontWeight = FontWeight.Black, fontSize = 16.sp)
+                            Text("#${selectedStanding.position}", color = Color(0xFFFACC15), fontWeight = FontWeight.Black, fontSize = 16.sp)
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("Punkty", color = Color(0xFF94A3B8), fontSize = 11.sp)
-                            Text("${standing.points} pkt", color = Color(0xFFFACC15), fontWeight = FontWeight.Black, fontSize = 16.sp)
+                            Text("${selectedStanding.points} pkt", color = Color(0xFFFACC15), fontWeight = FontWeight.Black, fontSize = 16.sp)
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("Mecze", color = Color(0xFF94A3B8), fontSize = 11.sp)
-                            Text("${standing.matchesPlayed}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text("${selectedStanding.matchesPlayed}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                         Column(horizontalAlignment = Alignment.End) {
-                            Text("Bilans setów", color = Color(0xFF94A3B8), fontSize = 11.sp)
-                            Text("${standing.setsWon}:${standing.setsLost}", color = Color(0xFFCBD5E1), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text("Sety", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                            Text("${selectedStanding.setsWon}:${selectedStanding.setsLost}", color = Color(0xFFCBD5E1), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                     }
                 }
@@ -1349,12 +1434,18 @@ fun TeamDetailsScreen(
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = "Pobieranie danych o hali, stronie WWW, trenerach i składzie zespołu...",
-                        color = Color(0xFF94A3B8),
-                        fontSize = 13.sp,
-                        modifier = Modifier.padding(18.dp)
-                    )
+                    Row(
+                        modifier = Modifier.padding(18.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                        Text(
+                            text = "Pobieranie danych o hali, stronie WWW, trenerach i składzie...",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 13.sp
+                        )
+                    }
                 }
             }
         } else {
@@ -1374,7 +1465,7 @@ fun TeamDetailsScreen(
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Hala:", color = Color(0xFF94A3B8), fontSize = 13.sp)
                             Text(
-                                text = p?.hallName?.ifBlank { "Brak danych" } ?: "Brak danych",
+                                text = p?.hallName?.ifBlank { "Hala TAURON Ligi" } ?: "Hala TAURON Ligi",
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
@@ -1421,7 +1512,7 @@ fun TeamDetailsScreen(
                 }
             }
 
-            // 2. SZTAB SZKOLENIOWY / TRENERZY
+            // 2. TRENERZY I SZTAB SZKOLENIOWY
             item {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
@@ -1448,6 +1539,7 @@ fun TeamDetailsScreen(
                                 ) {
                                     Text(c.role, color = Color(0xFF94A3B8), fontSize = 12.sp, modifier = Modifier.weight(1f))
                                     Text(c.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp, textAlign = TextAlign.End)
+                                )
                                 }
                             }
                         }
@@ -1455,7 +1547,7 @@ fun TeamDetailsScreen(
                 }
             }
 
-            // 3. SKŁAD ZESPOŁU (ZAWODNICZKI)
+            // 3. SKŁAD DRUŻYNY
             item {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
@@ -1522,75 +1614,139 @@ fun TeamDetailsScreen(
 }
 
 @Composable
-fun FavoriteTeamTab(currentFav: String, standings: List<StandingRowDto>, onSelectTeam: (String) -> Unit) {
+fun SettingsScreen(
+    currentFav: String,
+    standings: List<StandingRowDto>,
+    onSelectTeam: (String) -> Unit,
+    onBack: () -> Unit
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var appVersionInfo by remember { mutableStateOf<AppVersionResponse?>(null) }
     var checkingUpdate by remember { mutableStateOf(false) }
+    var favDropdownExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         checkingUpdate = true
-        runCatching {
-            appVersionInfo = ApiClient.api.getAppVersion()
-        }
+        runCatching { appVersionInfo = ApiClient.api.getAppVersion() }
         checkingUpdate = false
     }
 
-    val defaultTeams = listOf(
-        "LOTTO Chemik Police", "KS DevelopRes Rzeszów", "ŁKS Commercecon Łódź",
-        "PGE Budowlani Łódź", "BKS ZGO Bielsko-Biała", "MOYA Radomka Radom",
-        "UNI Opole", "#VolleyWrocław", "Metalkas Pałac Bydgoszcz",
-        "ITA TOOLS STAL Mielec", "NETLAND MKS Kalisz", "Sokół & Hagric Mogilno"
-    )
-    val teamsList = if (standings.isNotEmpty()) standings.map { it.name } else defaultTeams
+    val teamsList = remember(standings) {
+        if (standings.isNotEmpty()) standings.map { it.name }
+        else listOf(
+            "LOTTO Chemik Police",
+            "PGE Budowlani Łódź",
+            "KS DevelopRes Rzeszów",
+            "ŁKS Commercecon Łódź",
+            "BKS ZGO Bielsko-Biała",
+            "MOYA Radomka Radom",
+            "UNI Opole",
+            "Metalkas Pałac Bydgoszcz",
+            "#VolleyWrocław",
+            "ITA TOOLS STAL Mielec",
+            "Sokół & Hagric Mogilno",
+            "NETLAND MKS Kalisz"
+        )
+    }
+
+    val activeFavFull = remember(teamsList, currentFav) {
+        teamsList.find { it.contains(currentFav, ignoreCase = true) } ?: currentFav
+    }
 
     LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(vertical = 14.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+        contentPadding = PaddingValues(vertical = 12.dp)
     ) {
         item {
-            Text("Wybierz swój klub na Widżet", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "Wybrana drużyna będzie wyróżniona w Centrum Meczowym, w tabeli oraz na widżecie ekranu głównego.",
-                color = Color(0xFF94A3B8),
-                fontSize = 13.sp
-            )
-            Spacer(Modifier.height(8.dp))
-        }
-        items(teamsList) { teamName ->
-            val isSelected = teamName.contains(currentFav, true)
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isSelected) Color(0xFF1E3A8A) else Color(0xFF0F172A)
-                ),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onSelectTeam(teamName) }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    Modifier.fillMaxWidth().padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Text("⚙️ Ustawienia aplikacji", fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = Color.White)
+                OutlinedButton(
+                    onClick = onBack,
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFF38BDF8))
                 ) {
-                    Text(teamName, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium, fontSize = 15.sp)
-                    if (isSelected) {
-                        Text("✓ Wybrano", color = Color(0xFFFACC15), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text("⬅ Wróć", color = Color(0xFF38BDF8), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+        }
+
+        // SEKCJA 1: MÓJ KLUB (LISTA ROZWIJANA)
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                border = BorderStroke(1.dp, Color(0xFF1E293B)),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("💙 Mój Klub", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = Color(0xFF38BDF8))
+                    Text(
+                        text = "Wybrana drużyna będzie wyróżniona w Centrum Meczowym, w Tabeli, w Terminarzu oraz na widżecie ekranu głównego.",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 12.sp
+                    )
+
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Surface(
+                            color = Color(0xFF1E293B),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(2.dp, Color(0xFF0284C7)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { favDropdownExpanded = true }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("Twój ulubiony klub:", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                                    Text(activeFavFull, color = Color.White, fontWeight = FontWeight.Black, fontSize = 16.sp)
+                                }
+                                Text("▼ Zmień klub", color = Color(0xFFFACC15), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
+                        }
+
+                        DropdownMenu(
+                            expanded = favDropdownExpanded,
+                            onDismissRequest = { favDropdownExpanded = false },
+                            modifier = Modifier
+                                .fillMaxWidth(0.88f)
+                                .background(Color(0xFF0F172A))
+                        ) {
+                            teamsList.forEach { teamName ->
+                                val isSel = teamName.contains(currentFav, ignoreCase = true)
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = if (isSel) "✓ $teamName" else teamName,
+                                            color = if (isSel) Color(0xFFFACC15) else Color.White,
+                                            fontWeight = if (isSel) FontWeight.ExtraBold else FontWeight.Medium,
+                                            fontSize = 14.sp
+                                        )
+                                    },
+                                    onClick = {
+                                        onSelectTeam(teamName)
+                                        favDropdownExpanded = false
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
 
-        // SEKCJA USTAWIENIA I AKTUALIZACJE NA DOLE ZAKŁADKI MÓJ KLUB
+        // SEKCJA 2: AKTUALIZACJE APLIKACJI (DOTYCHCZASOWY WIDOK OTA)
         item {
-            Spacer(Modifier.height(16.dp))
-            HorizontalDivider(color = Color(0xFF334155), thickness = 1.dp)
-            Spacer(Modifier.height(14.dp))
-
-            Text("⚙️ Ustawienia i Aktualizacje", fontWeight = FontWeight.ExtraBold, fontSize = 17.sp, color = Color.White)
-            Spacer(Modifier.height(8.dp))
-
             val installedCode = BuildConfig.VERSION_CODE
             val installedName = BuildConfig.VERSION_NAME
             val remoteCode = appVersionInfo?.versionCode ?: installedCode
@@ -1609,6 +1765,8 @@ fun FavoriteTeamTab(currentFav: String, standings: List<StandingRowDto>, onSelec
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("🚀 Aktualizacje", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = Color.White)
+
                     Row(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
