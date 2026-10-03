@@ -191,6 +191,9 @@ data class AppVersionResponse(
     val versionName: String = "1.0.0",
     val apkUrl: String = "https://zukowski87.duckdns.org/download/siatka-live.apk",
     val portalUrl: String = "https://zukowski87.duckdns.org/pobierz",
+    val sha256: String = "",
+    val fileSizeBytes: Long = 0L,
+    val legalNotice: String = "",
     val changelog: String = ""
 )
 

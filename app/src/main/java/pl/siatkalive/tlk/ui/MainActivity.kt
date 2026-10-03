@@ -1612,6 +1612,11 @@ fun ClubsTab(
     }
 }
 
+fun sanitizeTrustedUrl(candidate: String?, fallback: String): String {
+    val clean = candidate?.trim() ?: return fallback
+    return if (clean.startsWith("https://zukowski87.duckdns.org/")) clean else fallback
+}
+
 @Composable
 fun SettingsScreen(
     currentFav: String,
@@ -1744,13 +1749,17 @@ fun SettingsScreen(
             }
         }
 
-        // SEKCJA 2: AKTUALIZACJE APLIKACJI (DOTYCHCZASOWY WIDOK OTA)
+        // SEKCJA 2: AKTUALIZACJE APLIKACJI (OTA + WERYFIKACJA SHA-256 + WALIDACJA HTTPS)
         item {
             val installedCode = BuildConfig.VERSION_CODE
             val installedName = BuildConfig.VERSION_NAME
             val remoteCode = appVersionInfo?.versionCode ?: installedCode
             val remoteName = appVersionInfo?.versionName ?: installedName
             val hasUpdate = remoteCode > installedCode
+            val sha256 = appVersionInfo?.sha256.orEmpty()
+            val sizeMb = (appVersionInfo?.fileSizeBytes ?: 0L).let { bytes ->
+                if (bytes > 0L) String.format("%.2f MB", bytes.toDouble() / (1024.0 * 1024.0)) else ""
+            }
 
             Card(
                 colors = CardDefaults.cardColors(
@@ -1764,7 +1773,7 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("🚀 Aktualizacje", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = Color.White)
+                    Text("🚀 Aktualizacje (Bezpieczne OTA)", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = Color.White)
 
                     Row(
                         Modifier.fillMaxWidth(),
@@ -1819,14 +1828,45 @@ fun SettingsScreen(
                         )
                     }
 
+                    // Wyświetlanie sumy kontrolnej SHA-256 i rozmiaru pliku APK
+                    if (sha256.isNotBlank()) {
+                        Surface(
+                            color = Color(0xFF1E293B),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("🔒 Suma kontrolna SHA-256 (.APK):", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    if (sizeMb.isNotBlank()) {
+                                        Text("Rozmiar: $sizeMb", color = Color(0xFFCBD5E1), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                                Text(
+                                    text = sha256,
+                                    color = Color(0xFF94A3B8),
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
+                    }
+
                     Row(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Button(
                             onClick = {
-                                val apkUrl = appVersionInfo?.apkUrl ?: "https://zukowski87.duckdns.org/download/siatka-live.apk"
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl)))
+                                val safeApkUrl = sanitizeTrustedUrl(
+                                    appVersionInfo?.apkUrl,
+                                    "https://zukowski87.duckdns.org/download/siatka-live.apk"
+                                )
+                                runCatching {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(safeApkUrl)))
+                                }
                             },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (hasUpdate) Color(0xFFFACC15) else Color(0xFF0284C7),
@@ -1843,8 +1883,13 @@ fun SettingsScreen(
 
                         OutlinedButton(
                             onClick = {
-                                val portalUrl = appVersionInfo?.portalUrl ?: "https://zukowski87.duckdns.org/pobierz"
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(portalUrl)))
+                                val safePortalUrl = sanitizeTrustedUrl(
+                                    appVersionInfo?.portalUrl,
+                                    "https://zukowski87.duckdns.org/pobierz"
+                                )
+                                runCatching {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(safePortalUrl)))
+                                }
                             },
                             modifier = Modifier.weight(1f)
                         ) {
@@ -1864,6 +1909,45 @@ fun SettingsScreen(
                     ) {
                         Text("↻ Sprawdź dostępność aktualizacji", color = Color(0xFF94A3B8), fontSize = 12.sp)
                     }
+                }
+            }
+        }
+
+        // SEKCJA 3: INFORMACJE PRAWNE I BEZPIECZEŃSTWO (DISCLAIMER)
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                border = BorderStroke(1.dp, Color(0xFF1E293B)),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "⚖️ Informacje prawne i prywatność",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 15.sp,
+                        color = Color(0xFFFACC15)
+                    )
+                    Text(
+                        text = "• Status projektu: Aplikacja SiatkaLive ma charakter wyłącznie nieoficjalny, hobbystyczny (fanowski) i w 100% niekomercyjny. Nie zawiera reklam, mikropłatności ani subskrypcji.",
+                        color = Color(0xFFCBD5E1),
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = "• Brak powiązań: Aplikacja nie jest w żaden sposób powiązana, autoryzowana ani wspierana przez Polską Ligę Siatkówki S.A. (PLS S.A.), grupę TAURON ani żaden z klubów siatkarskich.",
+                        color = Color(0xFFCBD5E1),
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = "• Charakter danych: Prezentowane w aplikacji wyniki meczów, tabele oraz zestawienia statystyczne stanowią proste informacje o faktach sportowych wykorzystywane w celach informacyjnych.",
+                        color = Color(0xFFCBD5E1),
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = "• Prywatność i bezpieczeństwo (Zero RODO): Aplikacja nie gromadzi, nie przetwarza ani nie przesyła żadnych danych osobowych, lokalizacji ani identyfikatorów urządzenia. Połączenia z serwerem oraz aktualizacje OTA są szyfrowane protokołem HTTPS (TLS) i weryfikowane sumą kontrolną SHA-256.",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 11.sp
+                    )
                 }
             }
         }
