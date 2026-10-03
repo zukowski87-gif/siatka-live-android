@@ -193,6 +193,30 @@ data class AppVersionResponse(
     val changelog: String = ""
 )
 
+@Serializable
+data class CoachDto(
+    val role: String = "",
+    val name: String = ""
+)
+
+@Serializable
+data class RosterPlayerDto(
+    val number: String = "",
+    val name: String = "",
+    val position: String = ""
+)
+
+@Serializable
+data class TeamProfileResponse(
+    val teamId: Int = 0,
+    val teamName: String = "",
+    val hallName: String = "",
+    val hallAddress: String = "",
+    val website: String = "",
+    val coaches: List<CoachDto> = emptyList(),
+    val roster: List<RosterPlayerDto> = emptyList()
+)
+
 interface TauronApi {
     @GET("api/v1/widget")
     suspend fun getWidgetData(@Query("team") team: String? = null): WidgetResponse
@@ -211,6 +235,9 @@ interface TauronApi {
 
     @GET("api/v1/app/version")
     suspend fun getAppVersion(): AppVersionResponse
+
+    @GET("api/v1/teams/{id}/details")
+    suspend fun getTeamDetails(@Path("id") id: Int): TeamProfileResponse
 }
 
 object ApiClient {

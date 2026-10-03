@@ -55,6 +55,7 @@ fun TauronAppScreen() {
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var openedMatchId by remember { mutableStateOf<String?>(null) }
+    var selectedTeamRow by remember { mutableStateOf<StandingRowDto?>(null) }
     var favTeam by remember { mutableStateOf(prefs.getString("fav_team", "Chemik") ?: "Chemik") }
 
     var widgetState by remember { mutableStateOf<WidgetResponse?>(null) }
@@ -143,31 +144,31 @@ fun TauronAppScreen() {
                 NavigationBar {
                     NavigationBarItem(
                         selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 },
+                        onClick = { openedMatchId = null; selectedTeamRow = null; selectedTab = 0 },
                         label = { Text("Mecze", fontSize = 10.sp) },
                         icon = { Text("⚡") }
                     )
                     NavigationBarItem(
                         selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
+                        onClick = { openedMatchId = null; selectedTeamRow = null; selectedTab = 1 },
                         label = { Text("Terminarz", fontSize = 10.sp) },
                         icon = { Text("📅") }
                     )
                     NavigationBarItem(
                         selected = selectedTab == 2,
-                        onClick = { selectedTab = 2 },
+                        onClick = { openedMatchId = null; selectedTeamRow = null; selectedTab = 2 },
                         label = { Text("Tabela", fontSize = 10.sp) },
                         icon = { Text("📊") }
                     )
                     NavigationBarItem(
                         selected = selectedTab == 3,
-                        onClick = { selectedTab = 3 },
+                        onClick = { openedMatchId = null; selectedTeamRow = null; selectedTab = 3 },
                         label = { Text("Statystyki", fontSize = 10.sp) },
                         icon = { Text("🏆") }
                     )
                     NavigationBarItem(
                         selected = selectedTab == 4,
-                        onClick = { selectedTab = 4 },
+                        onClick = { openedMatchId = null; selectedTeamRow = null; selectedTab = 4 },
                         label = { Text("Mój Klub", fontSize = 10.sp) },
                         icon = { Text("💙") }
                     )
@@ -220,7 +221,7 @@ fun TauronAppScreen() {
                             favTeam = favTeam,
                             onOpenMatch = { matchId -> openedMatchId = matchId }
                         )
-                        2 -> StandingsTab(standings, favTeam)
+                        2 -> StandingsTab(standings, favTeam, onTeamClick = { row -> selectedTeamRow = row })
                         3 -> LeagueStatsTab(statsOverview, favTeam)
                         4 -> FavoriteTeamTab(
                             currentFav = favTeam,
@@ -1204,12 +1205,23 @@ fun MatchListItemCard(
 }
 
 @Composable
-fun StandingsTab(rows: List<StandingRowDto>, favTeam: String) {
+fun StandingsTab(
+    rows: List<StandingRowDto>,
+    favTeam: String,
+    onTeamClick: (StandingRowDto) -> Unit
+) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(6.dp),
         contentPadding = PaddingValues(vertical = 12.dp)
     ) {
         item {
+            Text(
+                text = "💡 Dotknij dowolny zespół w tabeli, aby zobaczyć skład, trenerów, halę i stronę WWW.",
+                color = Color(0xFF38BDF8),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+            )
             Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp)) {
                 Text("#", Modifier.width(28.dp), fontWeight = FontWeight.Bold, color = Color.Gray)
                 Text("Drużyna", Modifier.weight(1f), fontWeight = FontWeight.Bold, color = Color.Gray)
@@ -1226,14 +1238,284 @@ fun StandingsTab(rows: List<StandingRowDto>, favTeam: String) {
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
                     .background(rowBg)
-                    .padding(horizontal = 10.dp, vertical = 10.dp),
+                    .clickable { onTeamClick(r) }
+                    .padding(horizontal = 10.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("${r.position}.", Modifier.width(28.dp), fontWeight = FontWeight.Bold)
-                Text(r.name, Modifier.weight(1f), fontWeight = if (isFav) FontWeight.Bold else FontWeight.Normal)
+                Column(Modifier.weight(1f)) {
+                    Text(r.name, fontWeight = if (isFav) FontWeight.Bold else FontWeight.Medium, color = Color.White)
+                    Text("Profil klubu ➔", fontSize = 10.sp, color = Color(0xFF38BDF8))
+                }
                 Text("${r.matchesPlayed}", Modifier.width(32.dp))
                 Text("${r.points}", Modifier.width(42.dp), fontWeight = FontWeight.ExtraBold, color = Color(0xFFFACC15))
                 Text("${r.setsWon}:${r.setsLost}", Modifier.width(48.dp), color = Color(0xFFCBD5E1), textAlign = TextAlign.End)
+            }
+        }
+    }
+}
+
+@Composable
+fun TeamDetailsScreen(
+    standing: StandingRowDto,
+    onBack: () -> Unit
+) {
+    val context = LocalContext.current
+    var profile by remember { mutableStateOf<TeamProfileResponse?>(null) }
+    var loading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(standing.teamId) {
+        loading = true
+        val tid = standing.teamId ?: 0
+        if (tid > 0) {
+            runCatching {
+                profile = ApiClient.api.getTeamDetails(tid)
+            }
+        }
+        loading = false
+    }
+
+    LazyColumn(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(vertical = 12.dp)
+    ) {
+        // Przycisk powrotu do tabeli
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedButton(
+                    onClick = onBack,
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFF38BDF8))
+                ) {
+                    Text("⬅ Powrót do tabeli", color = Color(0xFF38BDF8), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+        }
+
+        // Nagłówek Klubu z miejscem w tabeli i bilansem
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                border = BorderStroke(1.dp, Color(0xFF0284C7)),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "🏟️ PROFIL KLUBU TAURON LIGI",
+                        color = Color(0xFF38BDF8),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        text = standing.name,
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    HorizontalDivider(color = Color(0xFF334155))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("Miejsce w tabeli", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                            Text("#${standing.position}", color = Color(0xFFFACC15), fontWeight = FontWeight.Black, fontSize = 16.sp)
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Punkty", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                            Text("${standing.points} pkt", color = Color(0xFFFACC15), fontWeight = FontWeight.Black, fontSize = 16.sp)
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Mecze", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                            Text("${standing.matchesPlayed}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("Bilans setów", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                            Text("${standing.setsWon}:${standing.setsLost}", color = Color(0xFFCBD5E1), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
+                    }
+                }
+            }
+        }
+
+        if (loading) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Pobieranie danych o hali, stronie WWW, trenerach i składzie zespołu...",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(18.dp)
+                    )
+                }
+            }
+        } else {
+            val p = profile
+
+            // 1. HALA MECZOWA I STRONA WWW
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                    border = BorderStroke(1.dp, Color(0xFF1E293B)),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("📍 HALA MECZOWA I STRONA WWW", color = Color(0xFFFACC15), fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Hala:", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                            Text(
+                                text = p?.hallName?.ifBlank { "Brak danych" } ?: "Brak danych",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                textAlign = TextAlign.End
+                            )
+                        }
+
+                        if (!p?.hallAddress.isNullOrBlank()) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Adres hali:", color = Color(0xFF94A3B8), fontSize = 12.sp)
+                                Text(
+                                    text = p?.hallAddress ?: "",
+                                    color = Color(0xFFCBD5E1),
+                                    fontSize = 12.sp,
+                                    textAlign = TextAlign.End
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(color = Color(0xFF1E293B))
+
+                        val webUrl = p?.website?.ifBlank { "https://www.tauronligakobiet.pl" } ?: "https://www.tauronligakobiet.pl"
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Oficjalna strona WWW:", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                                Text(webUrl, color = Color(0xFF38BDF8), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                            Button(
+                                onClick = {
+                                    runCatching {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUrl)))
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
+                            ) {
+                                Text("🌐 Otwórz WWW", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. SZTAB SZKOLENIOWY / TRENERZY
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                    border = BorderStroke(1.dp, Color(0xFF1E293B)),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("📋 TRENERZY I SZTAB SZKOLENIOWY", color = Color(0xFF38BDF8), fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+
+                        val coaches = p?.coaches ?: emptyList()
+                        if (coaches.isEmpty()) {
+                            Text("Szczegółowy skład sztabu szkoleniowego w trakcie aktualizacji.", color = Color(0xFF94A3B8), fontSize = 12.sp)
+                        } else {
+                            coaches.forEach { c ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color(0xFF1E293B))
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(c.role, color = Color(0xFF94A3B8), fontSize = 12.sp, modifier = Modifier.weight(1f))
+                                    Text(c.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp, textAlign = TextAlign.End)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. SKŁAD ZESPOŁU (ZAWODNICZKI)
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                    border = BorderStroke(1.dp, Color(0xFF1E293B)),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val roster = p?.roster ?: emptyList()
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("👟 SKŁAD DRUŻYNY (SEZON 2026/2027)", color = Color(0xFFFACC15), fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                            Text("Zawodniczek: ${roster.size}", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                        }
+
+                        if (roster.isEmpty()) {
+                            Text("Brak opublikowanej listy zawodniczek dla tego klubu.", color = Color(0xFF94A3B8), fontSize = 12.sp)
+                        } else {
+                            roster.forEach { pl ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color(0xFF1E293B))
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                        Surface(
+                                            color = Color(0xFF0284C7),
+                                            shape = RoundedCornerShape(6.dp),
+                                            modifier = Modifier.width(34.dp)
+                                        ) {
+                                            Text(
+                                                text = "#${pl.number}",
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 12.sp,
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.padding(vertical = 4.dp)
+                                            )
+                                        }
+                                        Spacer(Modifier.width(12.dp))
+                                        Text(pl.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    }
+                                    Text(
+                                        text = pl.position,
+                                        color = Color(0xFF38BDF8),
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
