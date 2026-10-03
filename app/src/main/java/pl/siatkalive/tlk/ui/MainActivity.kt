@@ -1568,12 +1568,15 @@ fun ClubsTab(
                         if (roster.isEmpty()) {
                             Text("Brak opublikowanej listy zawodniczek dla tego klubu.", color = Color(0xFF94A3B8), fontSize = 12.sp)
                         } else {
+                            var selectedPlayer by remember { mutableStateOf<RosterPlayerDto?>(null) }
+
                             roster.forEach { pl ->
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(10.dp))
                                         .background(Color(0xFF1E293B))
+                                        .clickable { selectedPlayer = pl }
                                         .padding(horizontal = 12.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
@@ -1594,7 +1597,10 @@ fun ClubsTab(
                                             )
                                         }
                                         Spacer(Modifier.width(12.dp))
-                                        Text(pl.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        Column {
+                                            Text(pl.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                            Text("Pkt: ${pl.totalPoints} | Atak: ${pl.attackPct} ➔", color = Color(0xFF38BDF8), fontSize = 10.sp)
+                                        }
                                     }
                                     Text(
                                         text = pl.position,
@@ -1602,6 +1608,135 @@ fun ClubsTab(
                                         fontWeight = FontWeight.SemiBold,
                                         fontSize = 12.sp
                                     )
+                                }
+                            }
+
+                            // OKNO DIALOGOWE SZCZEGÓŁÓW ZAWODNICZKI (METRYCZKA NA PIERWSZYM MIEJSCU)
+                            if (selectedPlayer != null) {
+                                val pl = selectedPlayer!!
+                                var playerDetails by remember { mutableStateOf<PlayerProfileResponse?>(null) }
+                                var loadingDetails by remember { mutableStateOf(true) }
+
+                                LaunchedEffect(pl.playerId) {
+                                    loadingDetails = true
+                                    if (pl.playerId > 0) {
+                                        runCatching {
+                                            playerDetails = ApiClient.api.getPlayerDetails(pl.playerId)
+                                        }
+                                    }
+                                    loadingDetails = false
+                                }
+
+                                androidx.compose.ui.window.Dialog(onDismissRequest = { selectedPlayer = null }) {
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                                        border = BorderStroke(2.dp, Color(0xFF0284C7)),
+                                        shape = RoundedCornerShape(18.dp),
+                                        modifier = Modifier.fillMaxWidth().padding(8.dp)
+                                    ) {
+                                        Column(
+                                            Modifier.padding(18.dp),
+                                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            Row(
+                                                Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(Modifier.weight(1f)) {
+                                                    Text("KARTA ZAWODNICZKI", color = Color(0xFFFACC15), fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+                                                    Text(pl.name, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                                                }
+                                                Surface(
+                                                    color = Color(0xFF0284C7),
+                                                    shape = RoundedCornerShape(8.dp)
+                                                ) {
+                                                    Text(
+                                                        text = " #${pl.number} ",
+                                                        color = Color.White,
+                                                        fontWeight = FontWeight.Black,
+                                                        fontSize = 14.sp,
+                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                    )
+                                                }
+                                            }
+
+                                            HorizontalDivider(color = Color(0xFF334155))
+
+                                            // 1. METRYCZKA (WYŚWIETLANA JAKO PIERWSZA)
+                                            Text("📏 METRYCZKA I WARUNKI FIZYCZNE", color = Color(0xFF38BDF8), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+
+                                            if (loadingDetails) {
+                                                Row(
+                                                    Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                                    horizontalArrangement = Arrangement.Center,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                                    Spacer(Modifier.width(8.dp))
+                                                    Text("Pobieranie metryczki...", color = Color(0xFF94A3B8), fontSize = 12.sp)
+                                                }
+                                            } else {
+                                                val det = playerDetails
+                                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                                    Column {
+                                                        Text("Pozycja:", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                                                        Text(pl.position, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                                    }
+                                                    Column(horizontalAlignment = Alignment.End) {
+                                                        Text("Wzrost:", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                                                        Text(det?.height ?: "Brak danych", color = Color(0xFFFACC15), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                                    }
+                                                }
+                                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                                    Column {
+                                                        Text("Zasięg w ataku:", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                                                        Text(det?.attackReach ?: "Brak danych", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                                    }
+                                                    Column(horizontalAlignment = Alignment.End) {
+                                                        Text("Zasięg w bloku:", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                                                        Text(det?.blockReach ?: "Brak danych", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                                    }
+                                                }
+                                            }
+
+                                            HorizontalDivider(color = Color(0xFF334155))
+
+                                            // 2. STATYSTYKY SEZONOWE (POD METRYCZKĄ)
+                                            Text("📊 STATYSTYKI W SEZONIE", color = Color(0xFFFACC15), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth().background(Color(0xFF1E293B), RoundedCornerShape(10.dp)).padding(12.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                    Text("Mecze", color = Color(0xFF94A3B8), fontSize = 10.sp)
+                                                    Text(pl.matches, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                                }
+                                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                    Text("Sety", color = Color(0xFF94A3B8), fontSize = 10.sp)
+                                                    Text(pl.sets, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                                }
+                                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                    Text("Punkty", color = Color(0xFF94A3B8), fontSize = 10.sp)
+                                                    Text(pl.totalPoints, color = Color(0xFFFACC15), fontWeight = FontWeight.Black, fontSize = 14.sp)
+                                                }
+                                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                    Text("Skut. ataku", color = Color(0xFF94A3B8), fontSize = 10.sp)
+                                                    Text(pl.attackPct, color = Color(0xFF38BDF8), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                                }
+                                            }
+
+                                            Spacer(Modifier.height(4.dp))
+                                            Button(
+                                                onClick = { selectedPlayer = null },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text("Zamknij", color = Color.White, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

@@ -205,9 +205,23 @@ data class CoachDto(
 
 @Serializable
 data class RosterPlayerDto(
+    val playerId: Int = 0,
     val number: String = "",
     val name: String = "",
-    val position: String = ""
+    val position: String = "",
+    val matches: String = "0",
+    val sets: String = "0",
+    val totalPoints: String = "0",
+    val attackPct: String = "-"
+)
+
+@Serializable
+data class PlayerProfileResponse(
+    val playerId: Int = 0,
+    val height: String = "Brak danych",
+    val attackReach: String = "Brak danych",
+    val blockReach: String = "Brak danych",
+    val birthDate: String = "Brak danych"
 )
 
 @Serializable
@@ -242,6 +256,9 @@ interface TauronApi {
 
     @GET("api/v1/teams/{id}/details")
     suspend fun getTeamDetails(@Path("id") id: Int): TeamProfileResponse
+
+    @GET("api/v1/players/{id}/details")
+    suspend fun getPlayerDetails(@Path("id") id: Int): PlayerProfileResponse
 }
 
 object ApiClient {
