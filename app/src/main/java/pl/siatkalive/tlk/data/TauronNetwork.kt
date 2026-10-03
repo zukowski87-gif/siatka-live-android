@@ -54,6 +54,7 @@ data class MatchAnalytics(
 @Serializable
 data class MatchDto(
     val id: String,
+    val round: Int = 0,
     val dateLabel: String = "",
     val phase: String = "",
     val homeTeam: TeamInfo,

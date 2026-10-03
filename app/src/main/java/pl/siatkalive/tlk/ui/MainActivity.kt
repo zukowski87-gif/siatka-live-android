@@ -144,25 +144,31 @@ fun TauronAppScreen() {
                     NavigationBarItem(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
-                        label = { Text("Mecze") },
+                        label = { Text("Mecze", fontSize = 10.sp) },
                         icon = { Text("⚡") }
                     )
                     NavigationBarItem(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
-                        label = { Text("Tabela") },
-                        icon = { Text("📊") }
+                        label = { Text("Terminarz", fontSize = 10.sp) },
+                        icon = { Text("📅") }
                     )
                     NavigationBarItem(
                         selected = selectedTab == 2,
                         onClick = { selectedTab = 2 },
-                        label = { Text("Statystyki") },
-                        icon = { Text("🏆") }
+                        label = { Text("Tabela", fontSize = 10.sp) },
+                        icon = { Text("📊") }
                     )
                     NavigationBarItem(
                         selected = selectedTab == 3,
                         onClick = { selectedTab = 3 },
-                        label = { Text("Mój Klub") },
+                        label = { Text("Statystyki", fontSize = 10.sp) },
+                        icon = { Text("🏆") }
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 4,
+                        onClick = { selectedTab = 4 },
+                        label = { Text("Mój Klub", fontSize = 10.sp) },
                         icon = { Text("💙") }
                     )
                 }
@@ -209,9 +215,14 @@ fun TauronAppScreen() {
                             favTeam = favTeam,
                             onOpenMatch = { matchId -> openedMatchId = matchId }
                         )
-                        1 -> StandingsTab(standings, favTeam)
-                        2 -> LeagueStatsTab(statsOverview, favTeam)
-                        3 -> FavoriteTeamTab(
+                        1 -> ScheduleTab(
+                            matches = matches,
+                            favTeam = favTeam,
+                            onOpenMatch = { matchId -> openedMatchId = matchId }
+                        )
+                        2 -> StandingsTab(standings, favTeam)
+                        3 -> LeagueStatsTab(statsOverview, favTeam)
+                        4 -> FavoriteTeamTab(
                             currentFav = favTeam,
                             standings = standings,
                             onSelectTeam = { newTeam ->
@@ -760,7 +771,7 @@ fun PlayerRankingCard(title: String, subLabel: String, items: List<PlayerRankIte
                                 Text(p.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                 if (p.teamName.isNotBlank()) {
                                     Text(
-                                        text = p.teamName.lowercase(),
+                                        text = p.teamName,
                                         color = Color(0xFF38BDF8),
                                         fontWeight = FontWeight.Medium,
                                         fontSize = 11.sp
@@ -802,6 +813,18 @@ fun extractMonthHeader(dateLabel: String): String {
     }
 }
 
+fun detectCurrentRound(matches: List<MatchDto>): Int {
+    val liveMatch = matches.find { it.isLive && it.round > 0 }
+    if (liveMatch != null) return liveMatch.round
+
+    val rounds = matches.filter { it.round > 0 }.groupBy { it.round }.toSortedMap()
+    for ((rNum, rMatches) in rounds) {
+        val anyPlanned = rMatches.any { it.status == "PLANNED" || it.isLive }
+        if (anyPlanned) return rNum
+    }
+    return rounds.keys.firstOrNull() ?: 1
+}
+
 @Composable
 fun MatchesTab(
     featured: MatchDto?,
@@ -809,8 +832,18 @@ fun MatchesTab(
     favTeam: String,
     onOpenMatch: (String) -> Unit
 ) {
-    val groupedMatches = remember(matches) {
-        matches.groupBy { extractMonthHeader(it.dateLabel) }
+    val availableRounds = remember(matches) {
+        matches.map { it.round }.filter { it > 0 }.distinct().sorted()
+    }
+    val initialRound = remember(matches) { detectCurrentRound(matches) }
+    var selectedRound by remember(initialRound) { mutableIntStateOf(initialRound) }
+
+    val roundMatches = remember(matches, selectedRound, availableRounds) {
+        if (availableRounds.isNotEmpty()) {
+            matches.filter { it.round == selectedRound }
+        } else {
+            matches.take(6)
+        }
     }
 
     LazyColumn(
@@ -966,30 +999,117 @@ fun MatchesTab(
                         }
                     }
 
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(18.dp))
                     HorizontalDivider(color = Color(0xFF334155), thickness = 2.dp)
                     Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = "CAŁY SEZON 2026/2027 (PODZIAŁ NA MIESIĄCE)",
-                        color = Color(0xFF94A3B8),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 1.sp,
-                        modifier = Modifier.padding(start = 4.dp)
+                }
+            }
+        }
+
+        // PRZEŁĄCZNIK KOLEJEK W ZAKŁADCE MECZE
+        item {
+            Surface(
+                color = Color(0xFF1E293B),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color(0xFF334155)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        enabled = selectedRound > (availableRounds.firstOrNull() ?: 1),
+                        onClick = { if (selectedRound > 1) selectedRound -= 1 }
+                    ) {
+                        Text("◀ Poprzednia", color = if (selectedRound > 1) Color(0xFF38BDF8) else Color(0xFF475569), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "🏐 KOLEJKA $selectedRound z ${availableRounds.lastOrNull() ?: 22}",
+                            color = Color(0xFFFACC15),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = if (selectedRound == initialRound) "Bieżąca kolejka ligowa" else "Wybrana kolejka",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 10.sp
+                        )
+                    }
+
+                    TextButton(
+                        enabled = selectedRound < (availableRounds.lastOrNull() ?: 22),
+                        onClick = { selectedRound += 1 }
+                    ) {
+                        Text("Następna ▶", color = if (selectedRound < (availableRounds.lastOrNull() ?: 22)) Color(0xFF38BDF8) else Color(0xFF475569), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+
+        items(roundMatches, key = { it.id }) { m ->
+            MatchListItemCard(m = m, favTeam = favTeam, onOpenMatch = onOpenMatch)
+        }
+    }
+}
+
+@Composable
+fun ScheduleTab(
+    matches: List<MatchDto>,
+    favTeam: String,
+    onOpenMatch: (String) -> Unit
+) {
+    var onlyFavClub by remember { mutableStateOf(false) }
+
+    val filteredMatches = remember(matches, onlyFavClub, favTeam) {
+        if (!onlyFavClub) matches
+        else matches.filter {
+            it.homeTeam.name.contains(favTeam, true) || it.awayTeam.name.contains(favTeam, true) ||
+            it.homeTeam.shortName.equals(favTeam, true) || it.awayTeam.shortName.equals(favTeam, true)
+        }
+    }
+
+    val groupedMatches = remember(filteredMatches) {
+        filteredMatches.groupBy { extractMonthHeader(it.dateLabel) }
+    }
+
+    LazyColumn(
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(vertical = 12.dp)
+    ) {
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("📅 Pełny Terminarz Sezonu 2026/2027", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color.White)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = !onlyFavClub,
+                        onClick = { onlyFavClub = false },
+                        label = { Text("Wszystkie mecze (${matches.size})", fontSize = 12.sp) }
+                    )
+                    FilterChip(
+                        selected = onlyFavClub,
+                        onClick = { onlyFavClub = true },
+                        label = { Text("Tylko mój klub", fontSize = 12.sp) }
                     )
                 }
             }
         }
 
         groupedMatches.forEach { (monthTitle, monthMatches) ->
-            item(key = "header_$monthTitle") {
+            item(key = "sched_header_$monthTitle") {
                 Surface(
                     color = Color(0xFF1E293B),
                     shape = RoundedCornerShape(10.dp),
                     border = BorderStroke(1.dp, Color(0xFF334155)),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 10.dp, bottom = 4.dp)
+                        .padding(top = 8.dp, bottom = 2.dp)
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
@@ -1013,60 +1133,71 @@ fun MatchesTab(
                 }
             }
 
-            items(monthMatches, key = { it.id }) { m ->
-                val isFav = m.homeTeam.name.contains(favTeam, true) || m.awayTeam.name.contains(favTeam, true) ||
-                            m.homeTeam.shortName.equals(favTeam, true) || m.awayTeam.shortName.equals(favTeam, true)
-                val cardBg = if (isFav) Color(0xFF172554) else Color(0xFF0F172A)
-                val cardBorder = if (isFav) BorderStroke(1.dp, Color(0xFF2563EB)) else BorderStroke(1.dp, Color(0xFF1E293B))
+            items(monthMatches, key = { "sched_${it.id}" }) { m ->
+                MatchListItemCard(m = m, favTeam = favTeam, onOpenMatch = onOpenMatch)
+            }
+        }
+    }
+}
 
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = cardBg),
-                    border = cardBorder,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onOpenMatch(m.id) }
-                ) {
-                    Column(Modifier.padding(12.dp)) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(
-                                text = if (m.isLive) "● LIVE (SET ${m.currentSet ?: 1})" else m.dateLabel,
-                                color = if (m.isLive) Color(0xFFEF4444) else Color(0xFF94A3B8),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = if (m.sets.isNotEmpty()) m.sets.joinToString(" | ") { "${it.homePoints}:${it.awayPoints}" }
-                                       else "Raport ➔",
-                                color = Color(0xFFCBD5E1),
-                                fontSize = 11.sp
-                            )
-                        }
-                        Spacer(Modifier.height(6.dp))
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = m.homeTeam.name,
-                                modifier = Modifier.weight(1f),
-                                fontSize = 14.sp,
-                                fontWeight = if (isFav) FontWeight.Bold else FontWeight.Medium
-                            )
-                            Text(
-                                text = if (m.status == "PLANNED") "vs" else "${m.homeSets}:${m.awaySets}",
-                                color = Color(0xFFFACC15),
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 16.sp,
-                                modifier = Modifier.padding(horizontal = 10.dp)
-                            )
-                            Text(
-                                text = m.awayTeam.name,
-                                modifier = Modifier.weight(1f),
-                                fontSize = 14.sp,
-                                fontWeight = if (isFav) FontWeight.Bold else FontWeight.Medium,
-                                textAlign = TextAlign.End
-                            )
-                        }
-                    }
-                }
+@Composable
+fun MatchListItemCard(
+    m: MatchDto,
+    favTeam: String,
+    onOpenMatch: (String) -> Unit
+) {
+    val isFav = m.homeTeam.name.contains(favTeam, true) || m.awayTeam.name.contains(favTeam, true) ||
+                m.homeTeam.shortName.equals(favTeam, true) || m.awayTeam.shortName.equals(favTeam, true)
+    val cardBg = if (isFav) Color(0xFF172554) else Color(0xFF0F172A)
+    val cardBorder = if (isFav) BorderStroke(1.dp, Color(0xFF2563EB)) else BorderStroke(1.dp, Color(0xFF1E293B))
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = cardBg),
+        border = cardBorder,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onOpenMatch(m.id) }
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    text = if (m.isLive) "● LIVE (SET ${m.currentSet ?: 1})"
+                           else if (m.round > 0) "Kolejka ${m.round} • ${m.dateLabel}"
+                           else m.dateLabel,
+                    color = if (m.isLive) Color(0xFFEF4444) else Color(0xFF94A3B8),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = if (m.sets.isNotEmpty()) m.sets.joinToString(" | ") { "${it.homePoints}:${it.awayPoints}" }
+                           else "Raport ➔",
+                    color = Color(0xFFCBD5E1),
+                    fontSize = 11.sp
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = m.homeTeam.name,
+                    modifier = Modifier.weight(1f),
+                    fontSize = 14.sp,
+                    fontWeight = if (isFav) FontWeight.Bold else FontWeight.Medium
+                )
+                Text(
+                    text = if (m.status == "PLANNED") "vs" else "${m.homeSets}:${m.awaySets}",
+                    color = Color(0xFFFACC15),
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 16.sp,
+                    modifier = Modifier.padding(horizontal = 10.dp)
+                )
+                Text(
+                    text = m.awayTeam.name,
+                    modifier = Modifier.weight(1f),
+                    fontSize = 14.sp,
+                    fontWeight = if (isFav) FontWeight.Bold else FontWeight.Medium,
+                    textAlign = TextAlign.End
+                )
             }
         }
     }
@@ -1083,8 +1214,8 @@ fun StandingsTab(rows: List<StandingRowDto>, favTeam: String) {
                 Text("#", Modifier.width(28.dp), fontWeight = FontWeight.Bold, color = Color.Gray)
                 Text("Drużyna", Modifier.weight(1f), fontWeight = FontWeight.Bold, color = Color.Gray)
                 Text("M", Modifier.width(32.dp), fontWeight = FontWeight.Bold, color = Color.Gray)
-                Text("Sety", Modifier.width(48.dp), fontWeight = FontWeight.Bold, color = Color.Gray)
-                Text("Pkt", Modifier.width(36.dp), fontWeight = FontWeight.Bold, color = Color.Gray)
+                Text("Pkt", Modifier.width(42.dp), fontWeight = FontWeight.Bold, color = Color(0xFFFACC15))
+                Text("Sety", Modifier.width(48.dp), fontWeight = FontWeight.Bold, color = Color.Gray, textAlign = TextAlign.End)
             }
         }
         items(rows, key = { it.position }) { r ->
@@ -1101,8 +1232,8 @@ fun StandingsTab(rows: List<StandingRowDto>, favTeam: String) {
                 Text("${r.position}.", Modifier.width(28.dp), fontWeight = FontWeight.Bold)
                 Text(r.name, Modifier.weight(1f), fontWeight = if (isFav) FontWeight.Bold else FontWeight.Normal)
                 Text("${r.matchesPlayed}", Modifier.width(32.dp))
-                Text("${r.setsWon}:${r.setsLost}", Modifier.width(48.dp))
-                Text("${r.points}", Modifier.width(36.dp), fontWeight = FontWeight.Bold, color = Color(0xFFFACC15))
+                Text("${r.points}", Modifier.width(42.dp), fontWeight = FontWeight.ExtraBold, color = Color(0xFFFACC15))
+                Text("${r.setsWon}:${r.setsLost}", Modifier.width(48.dp), color = Color(0xFFCBD5E1), textAlign = TextAlign.End)
             }
         }
     }
