@@ -57,6 +57,7 @@ fun TauronAppScreen() {
     var widgetState by remember { mutableStateOf<WidgetResponse?>(null) }
     var standings by remember { mutableStateOf<List<StandingRowDto>>(emptyList()) }
     var matches by remember { mutableStateOf<List<MatchDto>>(emptyList()) }
+    var statsOverview by remember { mutableStateOf<StatsOverviewResponse?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var isOffline by remember { mutableStateOf(false) }
     var lastSyncTime by remember { mutableStateOf("--:--:--") }
@@ -68,6 +69,9 @@ fun TauronAppScreen() {
             widgetState = ApiClient.api.getWidgetData(favTeam)
             matches = ApiClient.api.getMatches().matches
             standings = ApiClient.api.getStandings().standings
+            if (statsOverview == null) {
+                runCatching { statsOverview = ApiClient.api.getStatsOverview() }
+            }
             lastSyncTime = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
             TauronGlanceWidget().updateAll(context)
         } catch (e: Exception) {
@@ -99,7 +103,7 @@ fun TauronAppScreen() {
                 title = {
                     Column {
                         Text(
-                            text = if (openedMatch != null) "⬅ Szczegóły Centrum Meczowego" else "🏐 Siatka Kobiet Live",
+                            text = if (openedMatch != null) "⬅ Raport i Statystyki Meczu" else "🏐 Siatka Kobiet Live",
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 17.sp,
                             modifier = Modifier.clickable(enabled = openedMatch != null) { openedMatchId = null }
@@ -119,7 +123,12 @@ fun TauronAppScreen() {
                             Text("✕ Zamknij", color = Color(0xFFFACC15), fontWeight = FontWeight.Bold)
                         }
                     } else {
-                        TextButton(onClick = { scope.launch { syncAll() } }) {
+                        TextButton(onClick = {
+                            scope.launch {
+                                syncAll()
+                                runCatching { statsOverview = ApiClient.api.getStatsOverview() }
+                            }
+                        }) {
                             Text("↻ Odśwież", color = Color(0xFF38BDF8), fontWeight = FontWeight.Bold)
                         }
                     }
@@ -132,7 +141,7 @@ fun TauronAppScreen() {
                     NavigationBarItem(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
-                        label = { Text("Mecze & Live") },
+                        label = { Text("Mecze") },
                         icon = { Text("⚡") }
                     )
                     NavigationBarItem(
@@ -144,6 +153,12 @@ fun TauronAppScreen() {
                     NavigationBarItem(
                         selected = selectedTab == 2,
                         onClick = { selectedTab = 2 },
+                        label = { Text("Statystyki") },
+                        icon = { Text("🏆") }
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 3,
+                        onClick = { selectedTab = 3 },
                         label = { Text("Mój Klub") },
                         icon = { Text("💙") }
                     )
@@ -192,7 +207,8 @@ fun TauronAppScreen() {
                             onOpenMatch = { matchId -> openedMatchId = matchId }
                         )
                         1 -> StandingsTab(standings, favTeam)
-                        2 -> FavoriteTeamTab(
+                        2 -> LeagueStatsTab(statsOverview, favTeam)
+                        3 -> FavoriteTeamTab(
                             currentFav = favTeam,
                             standings = standings,
                             onSelectTeam = { newTeam ->
@@ -239,6 +255,17 @@ fun MatchCenterDetailScreen(
     val homeRank = standings.find { it.shortName == match.homeTeam.shortName }
     val awayRank = standings.find { it.shortName == match.awayTeam.shortName }
 
+    var details by remember { mutableStateOf<MatchDetailsResponse?>(null) }
+    var loadingDetails by remember { mutableStateOf(true) }
+
+    LaunchedEffect(match.id, match.homeSets, match.awaySets) {
+        loadingDetails = true
+        runCatching {
+            details = ApiClient.api.getMatchDetails(match.id)
+        }
+        loadingDetails = false
+    }
+
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding = PaddingValues(vertical = 12.dp)
@@ -263,6 +290,7 @@ fun MatchCenterDetailScreen(
             }
         }
 
+        // KARTA GŁÓWNA WYNIKU
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
@@ -333,6 +361,7 @@ fun MatchCenterDetailScreen(
             }
         }
 
+        // 1. PRZEBIEG SETÓW + CZAS TRWANIA SETÓW Z PROTOKOŁU
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
@@ -341,19 +370,27 @@ fun MatchCenterDetailScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("1. PRZEBIEG SETÓW I PUNKTACJA W SECIE", color = Color(0xFF38BDF8), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("1. PRZEBIEG I CZAS TRWANIA SETÓW", color = Color(0xFF38BDF8), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                        if (details?.totalDuration != null && details?.totalDuration != "Brak danych") {
+                            Text("⏱ Łącznie: ${details?.totalDuration}", color = Color(0xFFFACC15), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    }
 
-                    if (match.sets.isEmpty()) {
+                    if (match.sets.isEmpty() && (details?.setDurations.isNullOrEmpty())) {
                         Text(
-                            "Mecz jeszcze się nie rozpoczął. Punktacja poszczególnych setów pojawi się natychmiast po pierwszej piłce.",
+                            "Mecz jeszcze się nie rozpoczął. Punktacja i czas poszczególnych setów pojawią się po pierwszej piłce.",
                             color = Color(0xFF94A3B8),
                             fontSize = 13.sp
                         )
                     } else {
+                        val durationsMap = details?.setDurations?.associateBy { it.setNumber } ?: emptyMap()
+
                         match.sets.forEach { s ->
                             val totalSetPts = (s.homePoints + s.awayPoints).coerceAtLeast(1)
                             val homeRatio = s.homePoints.toFloat() / totalSetPts.toFloat()
                             val setBg = if (s.isLive) Color(0xFF1E293B) else Color(0xFF090D16)
+                            val durInfo = durationsMap[s.setNumber]?.duration
 
                             Column(
                                 modifier = Modifier
@@ -367,12 +404,21 @@ fun MatchCenterDetailScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = if (s.isLive) "🔴 SET ${s.setNumber} (W TRAKCIE)" else "SET ${s.setNumber} (ZAKOŃCZONY)",
-                                        color = if (s.isLive) Color(0xFFEF4444) else Color(0xFF94A3B8),
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp
-                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = if (s.isLive) "🔴 SET ${s.setNumber} (W TRAKCIE)" else "SET ${s.setNumber}",
+                                            color = if (s.isLive) Color(0xFFEF4444) else Color(0xFF94A3B8),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp
+                                        )
+                                        if (!durInfo.isNullOrBlank()) {
+                                            Text(
+                                                text = "  •  ⏱ $durInfo",
+                                                color = Color(0xFFCBD5E1),
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                    }
                                     Text(
                                         text = "${s.homePoints} : ${s.awayPoints}",
                                         color = Color(0xFFFACC15),
@@ -405,6 +451,7 @@ fun MatchCenterDetailScreen(
             }
         }
 
+        // 2. STATYSTYKI SIATKARSKIE DRUŻYN (ATAK / BLOK / ZAGRYWKA / PRZYJĘCIE)
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
@@ -413,7 +460,87 @@ fun MatchCenterDetailScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("2. ANALITYKA LIVE: SIDE-OUT vs BREAK POINT", color = Color(0xFF38BDF8), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                    Text(
+                        "2. STATYSTYKI SIATKARSKIE (ATAK / BLOK / ZAGRYWKA / PRZYJĘCIE)",
+                        color = Color(0xFF38BDF8),
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 12.sp
+                    )
+
+                    val hs = details?.homeTeamStats
+                    val asStat = details?.awayTeamStats
+
+                    if (loadingDetails) {
+                        Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        }
+                    } else if (hs != null && asStat != null && (hs.matchesPlayed > 0 || asStat.matchesPlayed > 0)) {
+                        Text(
+                            "Porównanie oficjalnych statystyk zespołowych (${match.homeTeam.shortName} vs ${match.awayTeam.shortName}):",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 11.sp
+                        )
+
+                        StatBarRow(
+                            label = "💥 Punkty atakiem (Skuteczność %)",
+                            leftText = "${hs.attackPoints} pkt (${hs.attackPct})",
+                            rightText = "${asStat.attackPoints} pkt (${asStat.attackPct})",
+                            leftVal = hs.attackPoints.toFloat(),
+                            rightVal = asStat.attackPoints.toFloat()
+                        )
+
+                        StatBarRow(
+                            label = "🧱 Punkty blokiem (Średnia na set)",
+                            leftText = "${hs.blockPoints} blk (${hs.blocksPerSet}/set)",
+                            rightText = "${asStat.blockPoints} blk (${asStat.blocksPerSet}/set)",
+                            leftVal = hs.blockPoints.toFloat(),
+                            rightVal = asStat.blockPoints.toFloat()
+                        )
+
+                        StatBarRow(
+                            label = "🎯 Asy serwisowe (Średnia na set)",
+                            leftText = "${hs.serveAces} asów (${hs.acesPerSet}/set)",
+                            rightText = "${asStat.serveAces} asów (${asStat.acesPerSet}/set)",
+                            leftVal = hs.serveAces.toFloat(),
+                            rightVal = asStat.serveAces.toFloat()
+                        )
+
+                        StatBarRow(
+                            label = "🛡️ Przyjęcie pozytywne (Perfekcyjne %)",
+                            leftText = "${hs.receptionPosPct} (perf. ${hs.receptionPerfPct})",
+                            rightText = "${asStat.receptionPosPct} (perf. ${asStat.receptionPerfPct})",
+                            leftVal = hs.receptionPosPct.replace("%", "").replace(",", ".").toFloatOrNull() ?: 50f,
+                            rightVal = asStat.receptionPosPct.replace("%", "").replace(",", ".").toFloatOrNull() ?: 50f
+                        )
+
+                        StatBarRow(
+                            label = "⚠️ Błędy własne w ataku i zagrywce",
+                            leftText = "${hs.attackErrors + hs.serveErrors} bł. (${hs.serveErrors} zagr.)",
+                            rightText = "${asStat.attackErrors + asStat.serveErrors} bł. (${asStat.serveErrors} zagr.)",
+                            leftVal = (hs.attackErrors + hs.serveErrors).toFloat(),
+                            rightVal = (asStat.attackErrors + asStat.serveErrors).toFloat()
+                        )
+                    } else {
+                        Text(
+                            "Szczegółowe statystyki ataku, bloku i przyjęcia pojawią się po zaktualizowaniu oficjalnego raportu ligowego.",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+        }
+
+        // 3. ANALITYKA LIVE: SIDE-OUT vs BREAK POINT
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                border = BorderStroke(1.dp, Color(0xFF1E293B)),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("3. ANALITYKA LIVE: SIDE-OUT vs BREAK POINT", color = Color(0xFF38BDF8), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
                     Text(
                         "Side-out = punkt zdobyty po przyjęciu zagrywki rywalek. Break Point = punkt zdobyty przy własnej zagrywce (przełamanie).",
                         color = Color(0xFF64748B),
@@ -443,21 +570,32 @@ fun MatchCenterDetailScreen(
                         homeShort = match.homeTeam.shortName,
                         awayShort = match.awayTeam.shortName
                     )
+                }
+            }
+        }
 
-                    if (a.currentRunCount >= 2 && a.currentRunTeam != null) {
-                        val runTeamName = if (a.currentRunTeam == "HOME") match.homeTeam.name else match.awayTeam.name
-                        Surface(
-                            color = Color(0xFF1E293B),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = "🔥 Trwa seria punktowa: $runTeamName (+${a.currentRunCount} pkt z rzędu)",
-                                color = Color(0xFFFACC15),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
-                                modifier = Modifier.padding(10.dp)
-                            )
+        // 4. OFICJALNA METRYCZKA PROTOKOŁU MECZOWEGO (HALA, WIDZOWIE, SĘDZIOWIE)
+        if (details != null) {
+            item {
+                val d = details!!
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                    border = BorderStroke(1.dp, Color(0xFF1E293B)),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("4. PROTOKÓŁ MECZOWY (HALA, FREKWENCJA, SĘDZIOWIE)", color = Color(0xFF38BDF8), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+
+                        ProtocolInfoRow("🏟️ Obiekt sportowy:", "${d.hallName}${if (d.hallCity.isNotBlank()) " (${d.hallCity})" else ""}")
+                        if (d.hallAddress.isNotBlank()) {
+                            ProtocolInfoRow("📍 Adres hali:", "${d.hallAddress}${if (d.hallCapacity.isNotBlank()) " • Pojemność: ${d.hallCapacity}" else ""}")
+                        }
+                        ProtocolInfoRow("👥 Liczba widzów:", d.attendance)
+                        ProtocolInfoRow("⚖️ Sędzia pierwszy:", d.refereeFirst)
+                        ProtocolInfoRow("⚖️️ Sędzia drugi:", d.refereeSecond)
+                        if (d.commissioner.isNotBlank()) {
+                            ProtocolInfoRow("📋 Komisarz PLS:", d.commissioner)
                         }
                     }
                 }
@@ -476,6 +614,53 @@ fun MatchCenterDetailScreen(
 }
 
 @Composable
+fun ProtocolInfoRow(label: String, value: String) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF090D16))
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, color = Color(0xFF94A3B8), fontSize = 12.sp)
+        Text(value, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, textAlign = TextAlign.End)
+    }
+}
+
+@Composable
+fun StatBarRow(label: String, leftText: String, rightText: String, leftVal: Float, rightVal: Float) {
+    val sum = (leftVal + rightVal).coerceAtLeast(1f)
+    val leftRatio = (leftVal / sum).coerceIn(0.08f, 0.92f)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFF090D16))
+            .padding(10.dp)
+    ) {
+        Text(label, color = Color(0xFFCBD5E1), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(6.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(leftText, color = Color(0xFF38BDF8), fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+            Text(rightText, color = Color(0xFFFACC15), fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+        }
+        Spacer(Modifier.height(6.dp))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .clip(RoundedCornerShape(3.dp))
+        ) {
+            Box(Modifier.weight(leftRatio).fillMaxHeight().background(Color(0xFF38BDF8)))
+            Box(Modifier.weight(1f - leftRatio).fillMaxHeight().background(Color(0xFFFACC15)))
+        }
+    }
+}
+
+@Composable
 fun StatComparisonRow(label: String, homeVal: Int, awayVal: Int, homeShort: String, awayShort: String) {
     Column(
         modifier = Modifier
@@ -489,6 +674,84 @@ fun StatComparisonRow(label: String, homeVal: Int, awayVal: Int, homeShort: Stri
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("$homeShort: $homeVal", color = Color(0xFF38BDF8), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
             Text("$awayVal :$awayShort", color = Color(0xFFFACC15), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+        }
+    }
+}
+
+@Composable
+fun LeagueStatsTab(overview: StatsOverviewResponse?, favTeam: String) {
+    if (overview == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
+    val rk = overview.playerRankings
+
+    LazyColumn(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(vertical = 12.dp)
+    ) {
+        item {
+            Text("🏆 Liderki Statystyk Zawodniczek", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color.White)
+            Text("Oficjalne rankingi indywidualne TAURON Ligi 2026/2027", color = Color(0xFF94A3B8), fontSize = 12.sp)
+        }
+
+        item { PlayerRankingCard("🔥 Najlepiej Punktujące", "Średnia pkt/set", rk.scorers) }
+        item { PlayerRankingCard("💥 Najlepiej Atakujące", "Skuteczność Eff%", rk.attackers) }
+        item { PlayerRankingCard("🧱 Najlepiej Blokujące", "Bloki/set", rk.blockers) }
+        item { PlayerRankingCard("🎯 Najlepiej Zagrywające (Asy)", "Asy/set", rk.servers) }
+        item { PlayerRankingCard("🛡️ Najlepiej Przyjmujące (Poz%)", "Perfekcyjne %", rk.receivers) }
+    }
+}
+
+@Composable
+fun PlayerRankingCard(title: String, subLabel: String, items: List<PlayerRankItemDto>) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+        border = BorderStroke(1.dp, Color(0xFF1E293B)),
+        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, color = Color(0xFFFACC15), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+
+            if (items.isEmpty()) {
+                Text("Brak danych w tej kategorii.", color = Color(0xFF94A3B8), fontSize = 12.sp)
+            } else {
+                items.forEach { p ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF090D16))
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "${p.rank}.",
+                                color = if (p.rank == 1) Color(0xFFFACC15) else Color(0xFF38BDF8),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 14.sp,
+                                modifier = Modifier.width(26.dp)
+                            )
+                            Column {
+                                Text(p.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Mecze: ${p.matches} • Sety: ${p.sets}", color = Color(0xFF64748B), fontSize = 11.sp)
+                            }
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(p.value, color = Color(0xFFFACC15), fontWeight = FontWeight.Black, fontSize = 15.sp)
+                            if (p.subValue.isNotBlank()) {
+                                Text("$subLabel: ${p.subValue}", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -542,7 +805,7 @@ fun MatchesTab(
                             letterSpacing = 0.8.sp
                         )
                         Text(
-                            text = "Dotknij po szczegóły ➔",
+                            text = "Dotknij po statystyki ➔",
                             color = Color(0xFFFACC15),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
@@ -604,7 +867,7 @@ fun MatchesTab(
                                     )
                                 }
                                 Text(
-                                    text = "Otwórz analitykę ➔",
+                                    text = "Pełny raport ➔",
                                     color = Color(0xFF38BDF8),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
@@ -744,7 +1007,7 @@ fun MatchesTab(
                             )
                             Text(
                                 text = if (m.sets.isNotEmpty()) m.sets.joinToString(" | ") { "${it.homePoints}:${it.awayPoints}" }
-                                       else "Szczegóły ➔",
+                                       else "Raport ➔",
                                 color = Color(0xFFCBD5E1),
                                 fontSize = 11.sp
                             )
