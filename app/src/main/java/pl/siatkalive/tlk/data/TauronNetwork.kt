@@ -71,6 +71,7 @@ data class MatchDto(
 @Serializable
 data class StandingRowDto(
     val position: Int,
+    val teamId: Int? = null,
     val name: String,
     val shortName: String,
     val matchesPlayed: Int = 0,
