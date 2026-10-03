@@ -1,6 +1,9 @@
 package pl.siatkalive.tlk.ui
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import pl.siatkalive.tlk.BuildConfig
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -1107,6 +1110,19 @@ fun StandingsTab(rows: List<StandingRowDto>, favTeam: String) {
 
 @Composable
 fun FavoriteTeamTab(currentFav: String, standings: List<StandingRowDto>, onSelectTeam: (String) -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var appVersionInfo by remember { mutableStateOf<AppVersionResponse?>(null) }
+    var checkingUpdate by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        checkingUpdate = true
+        runCatching {
+            appVersionInfo = ApiClient.api.getAppVersion()
+        }
+        checkingUpdate = false
+    }
+
     val defaultTeams = listOf(
         "LOTTO Chemik Police", "KS DevelopRes Rzeszów", "ŁKS Commercecon Łódź",
         "PGE Budowlani Łódź", "BKS ZGO Bielsko-Biała", "MOYA Radomka Radom",
@@ -1148,6 +1164,135 @@ fun FavoriteTeamTab(currentFav: String, standings: List<StandingRowDto>, onSelec
                     Text(teamName, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium, fontSize = 15.sp)
                     if (isSelected) {
                         Text("✓ Wybrano", color = Color(0xFFFACC15), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                }
+            }
+        }
+
+        // SEKCJA USTAWIENIA I AKTUALIZACJE NA DOLE ZAKŁADKI MÓJ KLUB
+        item {
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider(color = Color(0xFF334155), thickness = 1.dp)
+            Spacer(Modifier.height(14.dp))
+
+            Text("⚙️ Ustawienia i Aktualizacje", fontWeight = FontWeight.ExtraBold, fontSize = 17.sp, color = Color.White)
+            Spacer(Modifier.height(8.dp))
+
+            val installedCode = BuildConfig.VERSION_CODE
+            val installedName = BuildConfig.VERSION_NAME
+            val remoteCode = appVersionInfo?.versionCode ?: installedCode
+            val remoteName = appVersionInfo?.versionName ?: installedName
+            val hasUpdate = remoteCode > installedCode
+
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = if (hasUpdate) Color(0xFF1E293B) else Color(0xFF0F172A)
+                ),
+                border = BorderStroke(
+                    width = if (hasUpdate) 2.dp else 1.dp,
+                    color = if (hasUpdate) Color(0xFFFACC15) else Color(0xFF1E293B)
+                ),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Zainstalowana wersja:", color = Color(0xFF94A3B8), fontSize = 12.sp)
+                            Text("v$installedName (build $installedCode)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("Wersja na serwerze:", color = Color(0xFF94A3B8), fontSize = 12.sp)
+                            Text(
+                                text = if (checkingUpdate) "Sprawdzanie..." else "v$remoteName (build $remoteCode)",
+                                color = if (hasUpdate) Color(0xFFFACC15) else Color(0xFF38BDF8),
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 15.sp
+                            )
+                        }
+                    }
+
+                    if (hasUpdate) {
+                        Surface(
+                            color = Color(0xFF422006),
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, Color(0xFFFACC15)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(Modifier.padding(10.dp)) {
+                                Text(
+                                    text = "🚀 Dostępna jest nowa wersja v$remoteName!",
+                                    color = Color(0xFFFACC15),
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 13.sp
+                                )
+                                if (!appVersionInfo?.changelog.isNullOrBlank()) {
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        text = appVersionInfo?.changelog ?: "",
+                                        color = Color(0xFFFEF08A),
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        Text(
+                            text = "✅ Korzystasz z najnowszej wersji aplikacji.",
+                            color = Color(0xFF4ADE80),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                val apkUrl = appVersionInfo?.apkUrl ?: "https://zukowski87.duckdns.org/download/siatka-live.apk"
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl)))
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (hasUpdate) Color(0xFFFACC15) else Color(0xFF0284C7),
+                                contentColor = if (hasUpdate) Color(0xFF090D16) else Color.White
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = if (hasUpdate) "⬇ Pobierz v$remoteName (.APK)" else "⬇ Pobierz plik .APK",
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                val portalUrl = appVersionInfo?.portalUrl ?: "https://zukowski87.duckdns.org/pobierz"
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(portalUrl)))
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("🌐 Strona /pobierz", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    TextButton(
+                        onClick = {
+                            scope.launch {
+                                checkingUpdate = true
+                                runCatching { appVersionInfo = ApiClient.api.getAppVersion() }
+                                checkingUpdate = false
+                            }
+                        },
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    ) {
+                        Text("↻ Sprawdź dostępność aktualizacji", color = Color(0xFF94A3B8), fontSize = 12.sp)
                     }
                 }
             }

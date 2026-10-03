@@ -183,6 +183,15 @@ data class StatsOverviewResponse(
     val playerRankings: PlayerRankingsDto = PlayerRankingsDto()
 )
 
+@Serializable
+data class AppVersionResponse(
+    val versionCode: Int = 1,
+    val versionName: String = "1.0.0",
+    val apkUrl: String = "https://zukowski87.duckdns.org/download/siatka-live.apk",
+    val portalUrl: String = "https://zukowski87.duckdns.org/pobierz",
+    val changelog: String = ""
+)
+
 interface TauronApi {
     @GET("api/v1/widget")
     suspend fun getWidgetData(@Query("team") team: String? = null): WidgetResponse
@@ -198,6 +207,9 @@ interface TauronApi {
 
     @GET("api/v1/stats/overview")
     suspend fun getStatsOverview(): StatsOverviewResponse
+
+    @GET("api/v1/app/version")
+    suspend fun getAppVersion(): AppVersionResponse
 }
 
 object ApiClient {

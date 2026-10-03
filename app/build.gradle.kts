@@ -13,8 +13,8 @@ android {
         applicationId = "pl.siatkalive.tlk"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.0.6"
+        versionCode = 8
+        versionName = "1.0.7"
 
         buildConfigField("String", "BFF_BASE_URL", "\"https://zukowski87.duckdns.org/\"")
     }
