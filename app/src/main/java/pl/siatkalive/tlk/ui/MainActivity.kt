@@ -533,6 +533,11 @@ fun MatchCenterDetailScreen(
 
         // 3. ANALITYKA LIVE: SIDE-OUT vs BREAK POINT
         item {
+            val effA = if ((details?.analytics?.homeSideOuts ?: 0) > 0 || (details?.analytics?.awaySideOuts ?: 0) > 0) {
+                details!!.analytics!!
+            } else {
+                a
+            }
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
                 border = BorderStroke(1.dp, Color(0xFF1E293B)),
@@ -543,33 +548,41 @@ fun MatchCenterDetailScreen(
                     Text("3. ANALITYKA LIVE: SIDE-OUT vs BREAK POINT", color = Color(0xFF38BDF8), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
                     Text(
                         "Side-out = punkt zdobyty po przyjęciu zagrywki rywalek. Break Point = punkt zdobyty przy własnej zagrywce (przełamanie).",
-                        color = Color(0xFF64748B),
+                        color = Color(0xFF94A3B8),
                         fontSize = 11.sp
                     )
 
-                    StatComparisonRow(
-                        label = "Przełamania przy własnej zagrywce (Break Points)",
-                        homeVal = a.homeBreakPoints,
-                        awayVal = a.awayBreakPoints,
-                        homeShort = match.homeTeam.shortName,
-                        awayShort = match.awayTeam.shortName
-                    )
+                    if (effA.homeSideOuts == 0 && effA.awaySideOuts == 0 && match.status == "PLANNED") {
+                        Text(
+                            "Analityka przejść (Side-out), przełamań (Break Point) i serii punktowych pojawi się automatycznie wraz z pierwszymi akcjami meczu.",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 12.sp
+                        )
+                    } else {
+                        StatBarRow(
+                            label = "🔥 Przełamania przy własnej zagrywce (Break Points)",
+                            leftText = "${match.homeTeam.shortName}: ${effA.homeBreakPoints} pkt",
+                            rightText = "${effA.awayBreakPoints} pkt :${match.awayTeam.shortName}",
+                            leftVal = effA.homeBreakPoints.toFloat().coerceAtLeast(1f),
+                            rightVal = effA.awayBreakPoints.toFloat().coerceAtLeast(1f)
+                        )
 
-                    StatComparisonRow(
-                        label = "Przejścia po przyjęciu (Side-outs)",
-                        homeVal = a.homeSideOuts,
-                        awayVal = a.awaySideOuts,
-                        homeShort = match.homeTeam.shortName,
-                        awayShort = match.awayTeam.shortName
-                    )
+                        StatBarRow(
+                            label = "🔄 Przejścia po przyjęciu zagrywki (Side-outs)",
+                            leftText = "${match.homeTeam.shortName}: ${effA.homeSideOuts} pkt",
+                            rightText = "${effA.awaySideOuts} pkt :${match.awayTeam.shortName}",
+                            leftVal = effA.homeSideOuts.toFloat().coerceAtLeast(1f),
+                            rightVal = effA.awaySideOuts.toFloat().coerceAtLeast(1f)
+                        )
 
-                    StatComparisonRow(
-                        label = "Najdłuższa seria punktowa w secie",
-                        homeVal = a.maxRunHome,
-                        awayVal = a.maxRunAway,
-                        homeShort = match.homeTeam.shortName,
-                        awayShort = match.awayTeam.shortName
-                    )
+                        StatBarRow(
+                            label = "⚡ Najdłuższa seria punktowa z rzędu",
+                            leftText = "${match.homeTeam.shortName}: ${effA.maxRunHome} pkt z rzędu",
+                            rightText = "${effA.maxRunAway} pkt z rzędu :${match.awayTeam.shortName}",
+                            leftVal = effA.maxRunHome.toFloat().coerceAtLeast(1f),
+                            rightVal = effA.maxRunAway.toFloat().coerceAtLeast(1f)
+                        )
+                    }
                 }
             }
         }
@@ -699,10 +712,12 @@ fun LeagueStatsTab(overview: StatsOverviewResponse?, favTeam: String) {
         }
 
         item { PlayerRankingCard("🔥 Najlepiej Punktujące", "Średnia pkt/set", rk.scorers) }
-        item { PlayerRankingCard("💥 Najlepiej Atakujące", "Skuteczność Eff%", rk.attackers) }
+        item { PlayerRankingCard("🏆 Ranking Nagrody MVP", "Liczba statuetek", rk.mvp) }
+        item { PlayerRankingCard("💥 Najlepiej Atakujące", "Efektywność Eff%", rk.attackers) }
         item { PlayerRankingCard("🧱 Najlepiej Blokujące", "Bloki/set", rk.blockers) }
-        item { PlayerRankingCard("🎯 Najlepiej Zagrywające (Asy)", "Asy/set", rk.servers) }
+        item { PlayerRankingCard("🎯 Najlepiej Zagrywające (Asy)", "Efektywność %", rk.servers) }
         item { PlayerRankingCard("🛡️ Najlepiej Przyjmujące (Poz%)", "Perfekcyjne %", rk.receivers) }
+        item { PlayerRankingCard("🏐 Najlepiej Broniące", "Obrony/set", rk.defenders) }
     }
 }
 
@@ -740,7 +755,19 @@ fun PlayerRankingCard(title: String, subLabel: String, items: List<PlayerRankIte
                             )
                             Column {
                                 Text(p.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                Text("Mecze: ${p.matches} • Sety: ${p.sets}", color = Color(0xFF64748B), fontSize = 11.sp)
+                                if (p.teamName.isNotBlank()) {
+                                    Text(
+                                        text = p.teamName.lowercase(),
+                                        color = Color(0xFF38BDF8),
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                                Text(
+                                    text = if (p.sets > 0) "Mecze: ${p.matches} • Sety: ${p.sets}" else "Rozegrane mecze: ${p.matches}",
+                                    color = Color(0xFF64748B),
+                                    fontSize = 10.sp
+                                )
                             }
                         }
                         Column(horizontalAlignment = Alignment.End) {

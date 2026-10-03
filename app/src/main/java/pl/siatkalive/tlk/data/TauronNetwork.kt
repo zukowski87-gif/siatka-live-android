@@ -137,6 +137,7 @@ data class TeamDetailedStatsDto(
 data class PlayerRankItemDto(
     val rank: Int = 0,
     val name: String = "",
+    val teamName: String = "",
     val matches: Int = 0,
     val sets: Int = 0,
     val value: String = "",
@@ -145,11 +146,13 @@ data class PlayerRankItemDto(
 
 @Serializable
 data class PlayerRankingsDto(
+    val mvp: List<PlayerRankItemDto> = emptyList(),
     val scorers: List<PlayerRankItemDto> = emptyList(),
     val attackers: List<PlayerRankItemDto> = emptyList(),
     val blockers: List<PlayerRankItemDto> = emptyList(),
     val servers: List<PlayerRankItemDto> = emptyList(),
-    val receivers: List<PlayerRankItemDto> = emptyList()
+    val receivers: List<PlayerRankItemDto> = emptyList(),
+    val defenders: List<PlayerRankItemDto> = emptyList()
 )
 
 @Serializable
@@ -168,6 +171,7 @@ data class MatchDetailsResponse(
     val hallCity: String = "",
     val hallCapacity: String = "",
     val setDurations: List<SetDurationDto> = emptyList(),
+    val analytics: MatchAnalytics? = null,
     val homeTeamStats: TeamDetailedStatsDto? = null,
     val awayTeamStats: TeamDetailedStatsDto? = null,
     val playerRankings: PlayerRankingsDto = PlayerRankingsDto()
