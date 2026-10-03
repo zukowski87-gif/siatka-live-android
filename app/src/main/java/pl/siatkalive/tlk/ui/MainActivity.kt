@@ -1698,6 +1698,12 @@ fun ClubsTab(
                                                         Text(det?.blockReach ?: "Brak danych", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                                     }
                                                 }
+                                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                                    Column {
+                                                        Text("Data urodzenia:", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                                                        Text(det?.birthDate ?: "Brak danych", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                                    }
+                                                }
                                             }
 
                                             HorizontalDivider(color = Color(0xFF334155))
