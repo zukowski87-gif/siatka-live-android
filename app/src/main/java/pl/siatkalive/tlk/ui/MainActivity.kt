@@ -1539,7 +1539,6 @@ fun ClubsTab(
                                 ) {
                                     Text(c.role, color = Color(0xFF94A3B8), fontSize = 12.sp, modifier = Modifier.weight(1f))
                                     Text(c.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp, textAlign = TextAlign.End)
-                                )
                                 }
                             }
                         }
