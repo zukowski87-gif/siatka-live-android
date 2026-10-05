@@ -1619,10 +1619,14 @@ fun ClubsTab(
 
                                 LaunchedEffect(pl.playerId) {
                                     loadingDetails = true
-                                    if (pl.playerId > 0) {
-                                        runCatching {
+                                    try {
+                                        if (pl.playerId > 0) {
                                             playerDetails = ApiClient.api.getPlayerDetails(pl.playerId)
+                                        } else {
+                                            playerDetails = PlayerProfileResponse(pl.playerId, "Brak danych", "Brak danych", "Brak danych", "Brak danych")
                                         }
+                                    } catch (e: Exception) {
+                                        playerDetails = PlayerProfileResponse(pl.playerId, "Błąd pobierania", "Błąd pobierania", "Błąd pobierania", "Błąd pobierania")
                                     }
                                     loadingDetails = false
                                 }
