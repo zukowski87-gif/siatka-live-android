@@ -258,7 +258,7 @@ interface TauronApi {
     suspend fun getTeamDetails(@Path("id") id: Int): TeamProfileResponse
 
     @GET("api/v1/players/{id}/details")
-    suspend fun getPlayerDetails(@Path("id") id: Int): PlayerProfileResponse
+suspend fun getPlayerDetails(@Path("id") id: Int): PlayerProfileResponse
 }
 
 object ApiClient {
