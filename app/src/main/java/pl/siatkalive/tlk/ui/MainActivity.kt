@@ -1894,31 +1894,19 @@ fun SettingsScreen(
             }
         }
 
-        // SEKCJA 2: AKTUALIZACJE APLIKACJI (OTA + WERYFIKACJA SHA-256 + WALIDACJA HTTPS)
+        // SEKCJA 2: INFORMACJE O WERSJI APLIKACJI (ZGODNE Z GOOGLE PLAY)
         item {
             val installedCode = BuildConfig.VERSION_CODE
             val installedName = BuildConfig.VERSION_NAME
-            val remoteCode = appVersionInfo?.versionCode ?: installedCode
-            val remoteName = appVersionInfo?.versionName ?: installedName
-            val hasUpdate = remoteCode > installedCode
-            val sha256 = appVersionInfo?.sha256.orEmpty()
-            val sizeMb = (appVersionInfo?.fileSizeBytes ?: 0L).let { bytes ->
-                if (bytes > 0L) String.format("%.2f MB", bytes.toDouble() / (1024.0 * 1024.0)) else ""
-            }
 
             Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = if (hasUpdate) Color(0xFF1E293B) else Color(0xFF0F172A)
-                ),
-                border = BorderStroke(
-                    width = if (hasUpdate) 2.dp else 1.dp,
-                    color = if (hasUpdate) Color(0xFFFACC15) else Color(0xFF1E293B)
-                ),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                border = BorderStroke(1.dp, Color(0xFF1E293B)),
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("🚀 Aktualizacje (Bezpieczne OTA)", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = Color.White)
+                    Text("📱 Wersja aplikacji", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = Color.White)
 
                     Row(
                         Modifier.fillMaxWidth(),
@@ -1930,135 +1918,21 @@ fun SettingsScreen(
                             Text("v$installedName (build $installedCode)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         }
                         Column(horizontalAlignment = Alignment.End) {
-                            Text("Wersja na serwerze:", color = Color(0xFF94A3B8), fontSize = 12.sp)
-                            Text(
-                                text = if (checkingUpdate) "Sprawdzanie..." else "v$remoteName (build $remoteCode)",
-                                color = if (hasUpdate) Color(0xFFFACC15) else Color(0xFF38BDF8),
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 15.sp
-                            )
+                            Text("Kanał dystrybucji:", color = Color(0xFF94A3B8), fontSize = 12.sp)
+                            Text("Google Play", color = Color(0xFF4ADE80), fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
                         }
                     }
 
-                    if (hasUpdate) {
-                        Surface(
-                            color = Color(0xFF422006),
-                            shape = RoundedCornerShape(8.dp),
-                            border = BorderStroke(1.dp, Color(0xFFFACC15)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(Modifier.padding(10.dp)) {
-                                Text(
-                                    text = "🚀 Dostępna jest nowa wersja v$remoteName!",
-                                    color = Color(0xFFFACC15),
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 13.sp
-                                )
-                                if (!appVersionInfo?.changelog.isNullOrBlank()) {
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(
-                                        text = appVersionInfo?.changelog ?: "",
-                                        color = Color(0xFFFEF08A),
-                                        fontSize = 11.sp
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        Text(
-                            text = "✅ Korzystasz z najnowszej wersji aplikacji.",
-                            color = Color(0xFF4ADE80),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-
-                    // Wyświetlanie sumy kontrolnej SHA-256 i rozmiaru pliku APK
-                    if (sha256.isNotBlank()) {
-                        Surface(
-                            color = Color(0xFF1E293B),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Row(
-                                    Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text("🔒 Suma kontrolna SHA-256 (.APK):", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    if (sizeMb.isNotBlank()) {
-                                        Text("Rozmiar: $sizeMb", color = Color(0xFFCBD5E1), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                    }
-                                }
-                                Text(
-                                    text = sha256,
-                                    color = Color(0xFF94A3B8),
-                                    fontSize = 10.sp
-                                )
-                            }
-                        }
-                    }
-
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                val safeApkUrl = sanitizeTrustedUrl(
-                                    appVersionInfo?.apkUrl,
-                                    "https://zukowski87.duckdns.org/download/siatka-live.apk"
-                                )
-                                runCatching {
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(safeApkUrl)))
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (hasUpdate) Color(0xFFFACC15) else Color(0xFF0284C7),
-                                contentColor = if (hasUpdate) Color(0xFF090D16) else Color.White
-                            ),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = if (hasUpdate) "⬇ Pobierz v$remoteName (.APK)" else "⬇ Pobierz plik .APK",
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 12.sp
-                            )
-                        }
-
-                        OutlinedButton(
-                            onClick = {
-                                val safePortalUrl = sanitizeTrustedUrl(
-                                    appVersionInfo?.portalUrl,
-                                    "https://zukowski87.duckdns.org/pobierz"
-                                )
-                                runCatching {
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(safePortalUrl)))
-                                }
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("🌐 Strona /pobierz", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    TextButton(
-                        onClick = {
-                            scope.launch {
-                                checkingUpdate = true
-                                runCatching { appVersionInfo = ApiClient.api.getAppVersion() }
-                                checkingUpdate = false
-                            }
-                        },
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    ) {
-                        Text("↻ Sprawdź dostępność aktualizacji", color = Color(0xFF94A3B8), fontSize = 12.sp)
-                    }
+                    Text(
+                        text = "✅ Aktualizacje aplikacji są zarządzane automatycznie przez sklep Google Play.",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 12.sp
+                    )
                 }
             }
         }
 
-        // SEKCJA 3: INFORMACJE PRAWNE I BEZPIECZEŃSTWO (DISCLAIMER)
+        // SEKCJA 3: INFORMACJE PRAWNE I POLITYKA PRYWATNOŚCI (WYMAGANE PRZEZ GOOGLE PLAY)
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
@@ -2074,7 +1948,7 @@ fun SettingsScreen(
                         color = Color(0xFFFACC15)
                     )
                     Text(
-                        text = "• Status projektu: Aplikacja SiatkaLive ma charakter wyłącznie nieoficjalny, hobbystyczny (fanowski) i w 100% niekomercyjny. Nie zawiera reklam, mikropłatności ani subskrypcji.",
+                        text = "• Status projektu: Aplikacja Siatka Live ma charakter wyłącznie nieoficjalny, hobbystyczny (fanowski) i w 100% niekomercyjny. Nie zawiera reklam, mikropłatności ani subskrypcji.",
                         color = Color(0xFFCBD5E1),
                         fontSize = 12.sp
                     )
@@ -2084,15 +1958,32 @@ fun SettingsScreen(
                         fontSize = 12.sp
                     )
                     Text(
-                        text = "• Charakter danych: Prezentowane w aplikacji wyniki meczów, tabele oraz zestawienia statystyczne stanowią proste informacje o faktach sportowych wykorzystywane w celach informacyjnych.",
+                        text = "• Charakter danych: Prezentowane w aplikacji wyniki meczów, tabele oraz zestawienia statystyczne stanowią informacje o faktach sportowych wykorzystywane w celach informacyjnych.",
                         color = Color(0xFFCBD5E1),
                         fontSize = 12.sp
                     )
                     Text(
-                        text = "• Prywatność i bezpieczeństwo (Zero RODO): Aplikacja nie gromadzi, nie przetwarza ani nie przesyła żadnych danych osobowych, lokalizacji ani identyfikatorów urządzenia. Połączenia z serwerem oraz aktualizacje OTA są szyfrowane protokołem HTTPS (TLS) i weryfikowane sumą kontrolną SHA-256.",
+                        text = "• Prywatność i bezpieczeństwo (RODO): Aplikacja nie wymaga logowania i nie gromadzi danych osobowych ani lokalizacji. Komunikacja z serwerem odbywa się wyłącznie przez szyfrowane połączenie HTTPS (TLS).",
                         color = Color(0xFF94A3B8),
                         fontSize = 11.sp
                     )
+
+                    Spacer(Modifier.height(4.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse("https://zukowski87.duckdns.org/polityka-prywatnosci"))
+                                )
+                            }
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, Color(0xFF38BDF8)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("📄 Polityka Prywatności (RODO)", color = Color(0xFF38BDF8), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
                 }
             }
         }
