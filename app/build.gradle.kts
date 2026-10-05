@@ -7,14 +7,14 @@ plugins {
 
 android {
     namespace = "pl.siatkalive.tlk"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "pl.siatkalive.tlk"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 19
-        versionName = "1.1.5"
+        targetSdk = 36
+        versionCode = 20
+        versionName = "1.1.6"
 
         buildConfigField("String", "BFF_BASE_URL", "\"https://zukowski87.duckdns.org/\"")
     }
@@ -39,6 +39,9 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
