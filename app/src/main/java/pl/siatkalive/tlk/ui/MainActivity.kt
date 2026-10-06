@@ -101,6 +101,8 @@ fun TauronAppScreen() {
         else matches.find { it.id == openedMatchId } ?: widgetState?.featuredMatch
     }
 
+    var showAiAssistant by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -136,7 +138,8 @@ fun TauronAppScreen() {
                             }) {
                                 Text("↻ Odśwież", color = Color(0xFF38BDF8), fontWeight = FontWeight.Bold)
                             }
-                            IconButton(onClick = { showSettings = true }) {
+                            IconButton(onClick = { showAiAssistant = true }) { Text("🤖", fontSize = 19.sp) }
+                                IconButton(onClick = { showSettings = true }) {
                                 Text("⚙️", fontSize = 19.sp)
                             }
                         }
@@ -180,7 +183,21 @@ fun TauronAppScreen() {
                 }
             }
         }
+        , floatingActionButton = {
+            if (openedMatch == null && !showSettings) {
+                ExtendedFloatingActionButton(
+                    onClick = { showAiAssistant = true },
+                    containerColor = Color(0xFF005BAC),
+                    contentColor = Color.White,
+                    icon = { Text("🤖", fontSize = 18.sp) },
+                    text = { Text("Zapytaj AI", fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                )
+            }
+        }
     ) { padding ->
+        if (showAiAssistant) {
+            AiAssistantBottomSheet(onDismiss = { showAiAssistant = false })
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
