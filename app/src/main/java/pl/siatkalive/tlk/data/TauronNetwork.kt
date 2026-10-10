@@ -20,7 +20,7 @@ data class TeamColors(
 
 @Serializable
 data class TeamInfo(
-    val name: String,
+    val name: String? = "",
     val shortName: String,
     val colors: TeamColors = TeamColors()
 )
@@ -70,16 +70,16 @@ data class MatchDto(
 
 @Serializable
 data class StandingRowDto(
-    val position: Int,
-    val teamId: Int? = null,
-    val name: String,
-    val shortName: String,
-    val matchesPlayed: Int = 0,
-    val points: Int = 0,
-    val matchesWon: Int = 0,
-    val matchesLost: Int = 0,
-    val setsWon: Int = 0,
-    val setsLost: Int = 0
+    val position: Int? = 0,
+    val teamId: String? = null,
+    val name: String? = "",
+    val shortName: String? = "",
+    val matchesPlayed: Int? = 0,
+    val points: Int? = 0,
+    val matchesWon: Int? = 0,
+    val matchesLost: Int? = 0,
+    val setsWon: Int? = 0,
+    val setsLost: Int? = 0
 )
 
 @Serializable
@@ -99,8 +99,9 @@ data class MatchesResponse(
 
 @Serializable
 data class StandingsResponse(
-    val updatedAt: String = "",
-    val standings: List<StandingRowDto> = emptyList()
+    val updatedAt: String? = "",
+    val standings: List<StandingRowDto>? = emptyList()
+)
 )
 
 @Serializable
@@ -115,7 +116,7 @@ data class SetDurationDto(
 data class TeamDetailedStatsDto(
     val teamName: String = "",
     val shortName: String = "",
-    val matchesPlayed: Int = 0,
+    val matchesPlayed: Int? = 0 = 0,
     val setsPlayed: Int = 0,
     val totalPoints: Int = 0,
     val serveTotal: Int = 0,
@@ -138,7 +139,7 @@ data class TeamDetailedStatsDto(
 @Serializable
 data class PlayerRankItemDto(
     val rank: Int = 0,
-    val name: String = "",
+    val name: String? = "" = "",
     val teamName: String = "",
     val matches: Int = 0,
     val sets: Int = 0,
@@ -200,14 +201,14 @@ data class AppVersionResponse(
 @Serializable
 data class CoachDto(
     val role: String = "",
-    val name: String = ""
+    val name: String? = "" = ""
 )
 
 @Serializable
 data class RosterPlayerDto(
     val playerId: Int = 0,
     val number: String = "",
-    val name: String = "",
+    val name: String? = "" = "",
     val position: String = "",
     val matches: String = "0",
     val sets: String = "0",
