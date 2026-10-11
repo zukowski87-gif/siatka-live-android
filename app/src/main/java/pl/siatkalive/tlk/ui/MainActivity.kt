@@ -1830,7 +1830,7 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("⚙️ Ustawienia aplikacji", fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = Color.White)
+                Text("⚙️ Ustawienia app aplikacji", fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = Color.White)
                 OutlinedButton(
                     onClick = onBack,
                     shape = RoundedCornerShape(10.dp),
