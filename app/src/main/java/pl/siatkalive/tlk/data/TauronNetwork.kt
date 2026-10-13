@@ -277,4 +277,25 @@ object ApiClient {
             .build()
             .create(TauronApi::class.java)
     }
+
+    @GET("api/v1/players/search")
+    suspend fun searchPlayers(@Query("q") query: String): PlayerSearchResponse
+
 }
+
+data class PlayerSearchResponse(
+    val query: String,
+    val results: List<PlayerSearchItem>
+)
+
+data class PlayerSearchItem(
+    val playerId: Int?,
+    val name: String,
+    val number: String?,
+    val position: String?,
+    val teamId: Int?,
+    val teamName: String?,
+    val matches: Int?,
+    val value: String?,
+    val source: String
+)
