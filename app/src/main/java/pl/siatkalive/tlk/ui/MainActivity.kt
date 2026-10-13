@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -138,7 +140,9 @@ fun TauronAppScreen() {
                             }) {
                                 Text("↻ Odśwież", color = Color(0xFF38BDF8), fontWeight = FontWeight.Bold)
                             }
-                            IconButton(onClick = { showPlayerSearch = true }) { Text("🤖", fontSize = 19.sp) }
+                            IconButton(onClick = { showPlayerSearch = true }) { 
+                                Icon(Icons.Default.Search, contentDescription = "Szukaj", tint = Color.White)
+                            }
                                 IconButton(onClick = { showSettings = true }) {
                                 Text("⚙️", fontSize = 19.sp)
                             }
@@ -189,8 +193,8 @@ fun TauronAppScreen() {
                     onClick = { showPlayerSearch = true },
                     containerColor = Color(0xFF005BAC),
                     contentColor = Color.White,
-                    icon = { Text("🤖", fontSize = 18.sp) },
-                    text = { Text("Zapytaj AI", fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+                    icon = { Icon(Icons.Default.Search, contentDescription = "Szukaj", tint = Color.White) },
+                    text = { Text("Szukaj", fontWeight = FontWeight.Bold, fontSize = 13.sp) }
                 )
             }
         }
@@ -333,7 +337,6 @@ fun MatchCenterDetailScreen(
             }
         }
 
-        // KARTA GŁÓWNA WYNIKU
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
@@ -404,7 +407,6 @@ fun MatchCenterDetailScreen(
             }
         }
 
-        // 1. PRZEBIEG SETÓW + CZAS TRWANIA SETÓW Z PROTOKOŁU
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
@@ -494,7 +496,6 @@ fun MatchCenterDetailScreen(
             }
         }
 
-        // 2. STATYSTYKI SIATKARSKIE DRUŻYN (ATAK / BLOK / ZAGRYWKA / PRZYJĘCIE)
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
@@ -574,7 +575,6 @@ fun MatchCenterDetailScreen(
             }
         }
 
-        // 3. ANALITYKA LIVE: SIDE-OUT vs BREAK POINT
         item {
             val effA = if ((details?.analytics?.homeSideOuts ?: 0) > 0 || (details?.analytics?.awaySideOuts ?: 0) > 0) {
                 details!!.analytics!!
@@ -630,7 +630,6 @@ fun MatchCenterDetailScreen(
             }
         }
 
-        // 4. OFICJALNA METRYCZKA PROTOKOŁU MECZOWEGO (HALA, WIDZOWIE, SĘDZIOWIE)
         if (details != null) {
             item {
                 val d = details!!
@@ -649,7 +648,7 @@ fun MatchCenterDetailScreen(
                         }
                         ProtocolInfoRow("👥 Liczba widzów:", d.attendance)
                         ProtocolInfoRow("⚖️ Sędzia pierwszy:", d.refereeFirst)
-                        ProtocolInfoRow("⚖️️ Sędzia drugi:", d.refereeSecond)
+                        ProtocolInfoRow("⚖ Sędzia drugi:", d.refereeSecond)
                         if (d.commissioner.isNotBlank()) {
                             ProtocolInfoRow("📋 Komisarz PLS:", d.commissioner)
                         }
@@ -1035,7 +1034,6 @@ fun MatchesTab(
             }
         }
 
-        // PRZEŁĄCZNIK KOLEJEK W ZAKŁADCE MECZE
         item {
             Surface(
                 color = Color(0xFF1E293B),
@@ -1341,7 +1339,6 @@ fun ClubsTab(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding = PaddingValues(vertical = 12.dp)
     ) {
-        // LISTA ROZWIJANA WYBORU KLUBU
         item {
             Text(
                 text = "🏟️ CENTRUM KLUBÓW TAURON LIGI",
@@ -1409,7 +1406,6 @@ fun ClubsTab(
             }
         }
 
-        // KARTA BILANSU W TABELI (JEŚLI DOSTĘPNA)
         if (selectedStanding != null) {
             item {
                 Card(
@@ -1468,7 +1464,6 @@ fun ClubsTab(
         } else {
             val p = profile
 
-            // 1. HALA MECZOWA I STRONA WWW
             item {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
@@ -1529,7 +1524,6 @@ fun ClubsTab(
                 }
             }
 
-            // 2. TRENERZY I SZTAB SZKOLENIOWY
             item {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
@@ -1563,7 +1557,6 @@ fun ClubsTab(
                 }
             }
 
-            // 3. SKŁAD DRUŻYNY
             item {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
@@ -1628,7 +1621,6 @@ fun ClubsTab(
                                 }
                             }
 
-                            // OKNO DIALOGOWE SZCZEGÓŁÓW ZAWODNICZKI (METRYCZKA NA PIERWSZYM MIEJSCU)
                             if (selectedPlayer != null) {
                                 val pl = selectedPlayer!!
                                 var playerDetails by remember { mutableStateOf<PlayerProfileResponse?>(null) }
@@ -1684,7 +1676,6 @@ fun ClubsTab(
 
                                             HorizontalDivider(color = Color(0xFF334155))
 
-                                            // 1. METRYCZKA (WYŚWIETLANA JAKO PIERWSZA)
                                             Text("📏 METRYCZKA I WARUNKI FIZYCZNE", color = Color(0xFF38BDF8), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
 
                                             if (loadingDetails) {
@@ -1729,7 +1720,6 @@ fun ClubsTab(
 
                                             HorizontalDivider(color = Color(0xFF334155))
 
-                                            // 2. STATYSTYKY SEZONOWE (POD METRYCZKĄ)
                                             Text("📊 STATYSTYKI W SEZONIE", color = Color(0xFFFACC15), fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
 
                                             Row(
@@ -1841,7 +1831,6 @@ fun SettingsScreen(
             }
         }
 
-        // SEKCJA 1: MÓJ KLUB (LISTA ROZWIJANA)
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
@@ -1911,7 +1900,6 @@ fun SettingsScreen(
             }
         }
 
-        // SEKCJA 2: INFORMACJE O WERSJI APLIKACJI (ZGODNE Z GOOGLE PLAY)
         item {
             val installedCode = BuildConfig.VERSION_CODE
             val installedName = BuildConfig.VERSION_NAME
@@ -1949,7 +1937,6 @@ fun SettingsScreen(
             }
         }
 
-        // SEKCJA 3: INFORMACJE PRAWNE I POLITYKA PRYWATNOŚCI (WYMAGANE PRZEZ GOOGLE PLAY)
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),

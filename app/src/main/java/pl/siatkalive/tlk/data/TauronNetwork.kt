@@ -235,6 +235,25 @@ data class TeamProfileResponse(
     val roster: List<RosterPlayerDto> = emptyList()
 )
 
+@Serializable
+data class PlayerSearchResponse(
+    val query: String,
+    val results: List<PlayerSearchItem>
+)
+
+@Serializable
+data class PlayerSearchItem(
+    val playerId: Int? = null,
+    val name: String,
+    val number: String? = null,
+    val position: String? = null,
+    val teamId: Int? = null,
+    val teamName: String? = null,
+    val matches: Int? = null,
+    val value: String? = null,
+    val source: String
+)
+
 interface TauronApi {
     @GET("api/v1/widget")
     suspend fun getWidgetData(@Query("team") team: String? = null): WidgetResponse
@@ -258,7 +277,10 @@ interface TauronApi {
     suspend fun getTeamDetails(@Path("id") id: Int): TeamProfileResponse
 
     @GET("api/v1/players/{id}/details")
-suspend fun getPlayerDetails(@Path("id") id: Int): PlayerProfileResponse
+    suspend fun getPlayerDetails(@Path("id") id: Int): PlayerProfileResponse
+
+    @GET("api/v1/players/search")
+    suspend fun searchPlayers(@Query("q") query: String): PlayerSearchResponse
 }
 
 object ApiClient {
@@ -277,25 +299,4 @@ object ApiClient {
             .build()
             .create(TauronApi::class.java)
     }
-
-    @GET("api/v1/players/search")
-    suspend fun searchPlayers(@Query("q") query: String): PlayerSearchResponse
-
 }
-
-data class PlayerSearchResponse(
-    val query: String,
-    val results: List<PlayerSearchItem>
-)
-
-data class PlayerSearchItem(
-    val playerId: Int?,
-    val name: String,
-    val number: String?,
-    val position: String?,
-    val teamId: Int?,
-    val teamName: String?,
-    val matches: Int?,
-    val value: String?,
-    val source: String
-)

@@ -19,7 +19,7 @@ import pl.siatkalive.tlk.data.PlayerSearchItem
 @Composable
 fun PlayerSearchBottomSheet(
     onDismiss: () -> Unit,
-    onPlayerSelected: (Int) -> Unit
+    onPlayerSelected: (Int) -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var searchResults by remember { mutableStateOf<List<PlayerSearchItem>>(emptyList()) }
