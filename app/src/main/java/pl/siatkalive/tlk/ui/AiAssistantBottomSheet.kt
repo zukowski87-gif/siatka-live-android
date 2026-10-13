@@ -33,7 +33,7 @@ fun PlayerSearchBottomSheet(
                 .padding(16.dp)
                 .navigationBarsPadding()
         ) {
-            Row(verticalAlignment = Alignment.Vertical.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Szukaj zawodniczki", style = MaterialTheme.typography.titleLarge)
@@ -49,7 +49,7 @@ fun PlayerSearchBottomSheet(
                         coroutineScope.launch {
                             isLoading = true
                             try {
-                                val response = ApiClient.service.searchPlayers(query)
+                                val response = ApiClient.api.searchPlayers(query)
                                 searchResults = response.results
                             } catch (e: Exception) {
                                 searchResults = emptyList()
